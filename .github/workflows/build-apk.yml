@@ -8,16 +8,17 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
+          cache: npm
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -25,8 +26,17 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      - name: Check project files
+        run: |
+          echo "Files:"
+          ls -la
+          test -f package.json || exit 1
+
       - name: Install dependencies
         run: npm install
+
+      - name: Install Capacitor Android
+        run: npm install @capacitor/android
 
       - name: Build web app
         run: npm run build
@@ -34,12 +44,12 @@ jobs:
       - name: Add Android
         run: npx cap add android
 
-      - name: Sync Capacitor
+      - name: Sync Android
         run: npx cap sync android
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: chmod +x gradlew && ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
