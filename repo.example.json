@@ -1,0 +1,22 @@
+{
+  "raw": 1,
+  "name": "My videos",
+  "items": [
+    {
+      "id": "lesson-1",
+      "title": "Lesson 1",
+      "type": "series",
+      "episode": "S1 · E1",
+      "year": 2026,
+      "duration": 600,
+      "description": "Replace this text, and the links below, with your own video.",
+      "license": "My own video",
+      "downloadable": true,
+      "thumb": "https://YOUR-HOST/lesson-1.jpg",
+      "qualities": {
+        "480": { "url": "https://YOUR-HOST/lesson-1-480.mp4", "size": 18000000 },
+        "720": { "url": "https://YOUR-HOST/lesson-1-720.mp4", "size": 40000000 }
+      }
+    }
+  ]
+}

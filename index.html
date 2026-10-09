@@ -1,13 +1,2393 @@
 <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>আমার অ্যাপ</title>
-    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-  </head>
-  <body class="bg-slate-950 text-slate-100">
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><style>:root{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}html,body{height:100%}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style></head><body>
+<title>RAW Stream</title>
+<meta name="theme-color" content="#090d16">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Hanken+Grotesk:wght@400;500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap">
+<style>
+/* ===== RAW Stream · styles =====
+   Layout concept: one-column phone shell (header / scrolling screen / bottom nav),
+   rails and grids of poster cards, full-viewport player overlay on top.
+   All colors are tokens. Dark is the home look; light follows the viewer or the Settings choice. */
+:root {
+  --bg: #090d16;
+  --bg2: #0e1424;
+  --surface: #151c2e;
+  --surface2: #1e2742;
+  --line: #28325a;
+  --fg: #eef1fa;
+  --fg2: #a7b0cb;
+  --fg3: #6e7896;
+  --accent: #ff6b4a;
+  --on-accent: #1a0a05;
+  --good: #3ddc97;
+  --warn: #ffc857;
+  --bad: #ff5d73;
+  --scrim: rgba(4, 7, 14, .66);
+  --shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  --pl-fg: #ffffff;
+  --pl-fg2: rgba(255, 255, 255, .72);
+  --pl-panel: rgba(14, 18, 30, .94);
+  --pl-line: rgba(255, 255, 255, .16);
+  --font-display: 'Unbounded', 'Hind Siliguri', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Hanken Grotesk', 'Hind Siliguri', 'Noto Sans Bengali', 'Segoe UI', system-ui, sans-serif;
+  --r-card: 14px;
+  --r-ctl: 12px;
+  --nav-h: 62px;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #f4f6fb; --bg2: #eaeef7; --surface: #ffffff; --surface2: #e7ecf8; --line: #d3dbee;
+    --fg: #121828; --fg2: #444e6c; --fg3: #7a84a2;
+    --scrim: rgba(10, 16, 32, .5); --shadow: 0 14px 40px rgba(20, 30, 70, .18);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #f4f6fb; --bg2: #eaeef7; --surface: #ffffff; --surface2: #e7ecf8; --line: #d3dbee;
+  --fg: #121828; --fg2: #444e6c; --fg3: #7a84a2;
+  --scrim: rgba(10, 16, 32, .5); --shadow: 0 14px 40px rgba(20, 30, 70, .18);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #090d16; --bg2: #0e1424; --surface: #151c2e; --surface2: #1e2742; --line: #28325a;
+  --fg: #eef1fa; --fg2: #a7b0cb; --fg3: #6e7896;
+  --scrim: rgba(4, 7, 14, .66); --shadow: 0 14px 40px rgba(0, 0, 0, .45);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.4;
+  overflow: hidden; overscroll-behavior: none;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+input, select { font: inherit; color: inherit; }
+img { display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ic { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.ic svg { display: block; }
+.anim-off *, .anim-off *::before, .anim-off *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- splash ---------- */
+#splash {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  background: var(--bg); transition: opacity .45s ease, visibility .45s;
+}
+#splash.done { opacity: 0; visibility: hidden; }
+.splash-in { display: grid; justify-items: center; gap: 18px; }
+.splash-mark { animation: pop .7s cubic-bezier(.2, .9, .3, 1.2) both; }
+.splash-word { font-family: var(--font-display); font-weight: 700; letter-spacing: .22em; font-size: 20px; animation: rise .6s .25s both; }
+.splash-word b { color: var(--accent); font-weight: 700; }
+.splash-dev { color: var(--fg3); font-size: 12px; letter-spacing: .08em; animation: rise .6s .45s both; }
+.splash-bar { width: 120px; height: 3px; border-radius: 3px; background: var(--surface2); overflow: hidden; animation: rise .6s .45s both; }
+.splash-bar i { display: block; height: 100%; width: 40%; background: var(--accent); border-radius: 3px; animation: slide 1.1s ease-in-out infinite; }
+@keyframes pop { from { transform: scale(.6) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes rise { from { transform: translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(300%); } }
+
+/* ---------- shell ---------- */
+#app { height: 100%; display: flex; flex-direction: column; max-width: 1040px; margin: 0 auto; position: relative; }
+.topbar {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px 8px; flex: none;
+}
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.brand-word { font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: .16em; white-space: nowrap; }
+.brand-word b { color: var(--accent); font-weight: 700; }
+.brand-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.brand-dev { font-size: 11px; font-weight: 600; color: var(--fg2); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.iconbtn {
+  width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--fg);
+  background: var(--surface); border: 1px solid var(--line); transition: background .15s, transform .1s;
+}
+.iconbtn:active { transform: scale(.94); }
+.iconbtn.plain { background: none; border-color: transparent; }
+.offline-pill {
+  margin: 0 16px 6px; padding: 6px 12px; border-radius: 99px; font-size: 12.5px; background: var(--surface2);
+  color: var(--warn); display: flex; gap: 8px; align-items: center; flex: none;
+}
+#main { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 0 20px; scroll-behavior: smooth; }
+.screen { padding-inline: 16px; animation: fade .25s ease both; }
+@keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.nav {
+  display: flex; flex: none; background: var(--bg2); border-top: 1px solid var(--line); min-height: var(--nav-h);
+}
+.nav button {
+  flex: 1; display: grid; place-items: center; align-content: center; gap: 3px; color: var(--fg3);
+  font-size: 11px; font-weight: 600; letter-spacing: .02em; position: relative; transition: color .15s;
+}
+.nav button.on { color: var(--accent); }
+.nav button.on::before { content: ''; position: absolute; top: -1px; width: 28px; height: 3px; border-radius: 0 0 4px 4px; background: var(--accent); }
+.nav .badge { position: absolute; top: 7px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 10px; display: grid; place-items: center; }
+
+/* ---------- type + common ---------- */
+h1, h2, h3 { margin: 0; font-family: var(--font-display); font-weight: 600; letter-spacing: -.01em; text-wrap: balance; }
+.h-screen { font-size: 22px; margin: 8px 0 14px; }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 22px 0 10px; }
+.sec-head h2 { font-size: 15px; letter-spacing: 0; }
+.muted { color: var(--fg2); }
+.faint { color: var(--fg3); }
+.small { font-size: 12.5px; }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 18px;
+  border-radius: var(--r-ctl); font-weight: 700; background: var(--surface2); border: 1px solid var(--line); transition: transform .1s, filter .15s; white-space: nowrap;
+}
+.btn:active { transform: scale(.97); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.btn.danger { color: var(--bad); }
+.btn.sm { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+.chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; height: 34px; padding: 0 14px; border-radius: 99px; background: var(--surface); border: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; color: var(--fg2); display: inline-flex; align-items: center; gap: 6px;
+}
+.chip.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.seg { display: flex; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg button { flex: 1; height: 34px; border-radius: 9px; font-weight: 700; font-size: 13px; color: var(--fg2); display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.seg button.on { background: var(--surface2); color: var(--fg); box-shadow: 0 1px 0 var(--line); }
+.seg .n { font-size: 11px; background: var(--accent); color: var(--on-accent); border-radius: 8px; padding: 0 6px; }
+.field {
+  display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: var(--r-ctl);
+  background: var(--surface); border: 1px solid var(--line); color: var(--fg3);
+}
+.field:focus-within { border-color: var(--accent); }
+.field input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--fg); height: 100%; }
+.field input::placeholder { color: var(--fg3); }
+.row-tools { display: flex; gap: 8px; align-items: center; margin: 10px 0 4px; }
+.row-tools .field { flex: 1; min-width: 0; }
+select.sel {
+  height: 46px; border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--line); padding: 0 10px; color: var(--fg);
+}
+.empty { display: grid; justify-items: center; text-align: center; gap: 10px; padding: 44px 24px; color: var(--fg2); }
+.empty .ic { width: 64px; height: 64px; border-radius: 50%; background: var(--surface); color: var(--accent); }
+.empty .btnrow { width: 100%; max-width: 360px; }
+.empty b { color: var(--fg); font-family: var(--font-display); font-weight: 600; font-size: 15px; }
+.skel { background: linear-gradient(100deg, var(--surface) 30%, var(--surface2) 50%, var(--surface) 70%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; border-radius: var(--r-card); }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- cards ---------- */
+.rail { display: flex; gap: 12px; overflow-x: auto; margin-inline: -16px; padding: 2px 16px 8px; scroll-snap-type: x proximity; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.rail .card { width: 150px; flex: none; scroll-snap-align: start; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px 12px; }
+.card { position: relative; text-align: left; display: block; min-width: 0; cursor: pointer; }
+.thumb { position: relative; aspect-ratio: 16 / 10; border-radius: var(--r-card); overflow: hidden; background: var(--surface2); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; transition: transform .35s; }
+.card:active .thumb img { transform: scale(1.04); }
+.thumb .ph { position: absolute; inset: 0; display: grid; place-items: center; color: rgba(255, 255, 255, .85); }
+.tag {
+  position: absolute; left: 7px; top: 7px; padding: 2px 7px; border-radius: 6px; font-size: 10.5px; font-weight: 800;
+  letter-spacing: .04em; background: rgba(8, 12, 22, .72); color: #fff; backdrop-filter: blur(4px);
+}
+.tag.acc { background: var(--accent); color: var(--on-accent); }
+.dur { position: absolute; right: 7px; bottom: 7px; padding: 1px 6px; border-radius: 6px; font-size: 11px; font-weight: 700; background: rgba(8, 12, 22, .72); color: #fff; font-variant-numeric: tabular-nums; }
+.prog { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255, 255, 255, .25); }
+.prog i { display: block; height: 100%; background: var(--accent); }
+.card .meta { padding: 8px 2px 0; display: flex; gap: 6px; align-items: flex-start; }
+.card .meta > div { flex: 1; min-width: 0; }
+.card .t { font-weight: 700; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card .s { color: var(--fg3); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.more { width: 28px; height: 28px; margin: -3px -6px 0 0; border-radius: 50%; display: grid; place-items: center; color: var(--fg3); }
+.more:active { background: var(--surface2); }
+.hero { display: flex; gap: 12px; overflow-x: auto; margin-inline: -16px; padding: 4px 16px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.hero::-webkit-scrollbar { display: none; }
+.slide { position: relative; flex: none; width: min(88%, 520px); aspect-ratio: 16 / 10; border-radius: 20px; overflow: hidden; scroll-snap-align: center; background: var(--surface2); box-shadow: var(--shadow); cursor: pointer; }
+.slide img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.slide::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(5, 8, 16, .92)); }
+.slide .in { position: absolute; inset: auto 16px 14px 16px; z-index: 1; color: #fff; display: grid; gap: 8px; }
+.slide h3 { font-size: 19px; }
+.slide .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: rgba(255, 255, 255, .8); }
+.slide .btns { display: flex; gap: 8px; }
+.listrow { display: flex; gap: 12px; align-items: center; padding: 8px; margin-inline: -8px; border-radius: 14px; cursor: pointer; min-width: 0; }
+.listrow:active { background: var(--surface); }
+.listrow .thumb { width: 118px; flex: none; border-radius: 10px; }
+.listrow .info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.listrow .t { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.listrow .s { color: var(--fg3); font-size: 12.5px; }
+.list { display: grid; gap: 4px; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 99px; font-size: 11px; font-weight: 700; background: var(--surface2); color: var(--fg2); }
+.pill.good { color: var(--good); } .pill.bad { color: var(--bad); } .pill.warn { color: var(--warn); }
+
+/* ---------- sheets ---------- */
+.sheet-wrap { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+.sheet-back { position: absolute; inset: 0; background: var(--scrim); animation: fadein .2s both; }
+@keyframes fadein { from { opacity: 0; } }
+.sheet {
+  position: relative; width: min(100%, 640px); max-height: 88%; display: flex; flex-direction: column; background: var(--bg2);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: 22px 22px 0 0; box-shadow: var(--shadow);
+  animation: up .28s cubic-bezier(.2, .9, .3, 1) both; padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.sheet.full { height: 100%; max-height: 100%; border-radius: 0; width: min(100%, 1040px); }
+@keyframes up { from { transform: translateY(40px); opacity: 0; } }
+.sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 8px; flex: none; }
+.sheet-head h2 { flex: 1; font-size: 16px; }
+.sheet-body { overflow-y: auto; padding: 4px 16px 18px; display: grid; gap: 10px; align-content: start; }
+.act { display: flex; align-items: center; gap: 14px; height: 50px; padding: 0 6px; border-radius: 12px; font-weight: 600; width: 100%; text-align: left; }
+.act:active { background: var(--surface); }
+.act.danger { color: var(--bad); }
+.act .ic { color: var(--fg2); } .act.danger .ic { color: var(--bad); }
+.act small { margin-left: auto; color: var(--fg3); font-weight: 500; }
+.formrow { display: grid; gap: 6px; }
+.formrow label { font-size: 12.5px; color: var(--fg2); font-weight: 600; }
+.textin { height: 46px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--surface); padding: 0 14px; color: var(--fg); width: 100%; }
+.textin:focus { outline: none; border-color: var(--accent); }
+.btnrow { display: flex; gap: 10px; } .btnrow .btn { flex: 1; }
+.toasts { position: fixed; left: 0; right: 0; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom, 0px)); z-index: 90; display: grid; justify-items: center; gap: 8px; pointer-events: none; padding: 0 16px; }
+.toast { pointer-events: auto; max-width: 480px; padding: 11px 16px; border-radius: 14px; background: var(--fg); color: var(--bg); font-weight: 600; font-size: 13.5px; box-shadow: var(--shadow); display: flex; gap: 14px; align-items: center; animation: rise .25s both; }
+.toast button { color: var(--accent); font-weight: 800; filter: saturate(1.2) brightness(.85); }
+
+/* ---------- detail ---------- */
+.d-hero { position: relative; margin: 0 -16px; aspect-ratio: 16 / 9; background: var(--surface2); }
+.d-hero img { width: 100%; height: 100%; object-fit: cover; }
+.d-hero::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, var(--bg2)); }
+.d-title { font-size: 22px; margin-top: 4px; }
+.d-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--fg2); font-size: 13px; }
+.d-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.d-actions .wide { grid-column: 1 / -1; }
+.d-actions .primary { height: 50px; }
+.qgrid { display: grid; gap: 8px; }
+.qrow { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--r-ctl); background: var(--surface); border: 1px solid var(--line); text-align: left; width: 100%; }
+.qrow.on { border-color: var(--accent); }
+.qrow b { font-family: var(--font-display); font-weight: 600; font-size: 14px; min-width: 56px; }
+.qrow .sz { margin-left: auto; color: var(--fg3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.qrow .ck { color: var(--accent); }
+
+/* ---------- downloads / progress ---------- */
+.dl { display: grid; gap: 10px; padding: 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.dl-top { display: flex; gap: 12px; align-items: center; min-width: 0; }
+.dl-top .thumb { width: 92px; flex: none; border-radius: 10px; }
+.dl-top .info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.bar { height: 6px; border-radius: 6px; background: var(--surface2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; transition: width .3s linear; }
+.bar.good i { background: var(--good); }
+.dl-stats { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--fg2); font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.dl-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- settings ---------- */
+.set-sec { margin-top: 16px; }
+.set-sec > h3 { font-size: 11.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg3); margin: 0 4px 8px; font-family: var(--font-body); font-weight: 800; }
+.code { margin: 0; padding: 12px; background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; font: 12px/1.5 ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace; color: var(--fg); overflow-x: auto; white-space: pre; user-select: text; }
+.set-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.set-row { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 14px; border-top: 1px solid var(--line); }
+.set-row:first-child { border-top: 0; }
+.set-row .lab { flex: 1; min-width: 0; }
+.set-row .lab b { display: block; font-weight: 700; }
+.set-row .lab span { color: var(--fg3); font-size: 12.5px; }
+.switch { width: 48px; height: 28px; border-radius: 14px; background: var(--surface2); border: 1px solid var(--line); position: relative; flex: none; transition: background .2s; }
+.switch::after { content: ''; position: absolute; left: 2px; top: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--fg2); transition: transform .2s, background .2s; }
+.switch.on { background: var(--accent); border-color: transparent; }
+.switch.on::after { transform: translateX(20px); background: var(--on-accent); }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.sw { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; outline: 1px solid var(--line); }
+.sw.on { border-color: var(--bg2); outline: 2px solid var(--fg); }
+.cust-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+.cust-row .lab { flex: 1; font-weight: 700; }
+.cust-row.off .lab { color: var(--fg3); text-decoration: line-through; }
+
+/* ---------- player ---------- */
+.player { position: fixed; inset: 0; z-index: 80; background: #000; color: var(--pl-fg); user-select: none; -webkit-user-select: none; touch-action: none; font-family: var(--font-body); }
+.player video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
+.player video::cue { background: rgba(0, 0, 0, .66); color: #fff; font-size: 1.05em; }
+.pl-gesture { position: absolute; inset: 0; }
+.pl-ui { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; transition: opacity .25s; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+.pl-ui > * { pointer-events: auto; }
+.player.ui-hidden .pl-ui { opacity: 0; }
+.player.ui-hidden .pl-ui > * { pointer-events: none; }
+.pl-top, .pl-bottom { padding: 12px 14px; background: linear-gradient(180deg, rgba(0, 0, 0, .7), transparent); display: flex; gap: 10px; align-items: center; }
+.pl-bottom { background: linear-gradient(0deg, rgba(0, 0, 0, .78), transparent); flex-direction: column; align-items: stretch; padding-top: 28px; }
+.pl-top .tt { flex: 1; min-width: 0; }
+.pl-top .tt b { display: block; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-top .tt span { color: var(--pl-fg2); font-size: 12px; }
+.pl-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--pl-fg); transition: background .15s, transform .1s; }
+.pl-btn:active { background: rgba(255, 255, 255, .18); transform: scale(.94); }
+.pl-btn[hidden] { display: none; }
+.pl-center { display: flex; justify-content: center; align-items: center; gap: clamp(8px, 4vw, 28px); pointer-events: none !important; }
+.pl-center > * { pointer-events: auto; }
+.player.ui-hidden .pl-center > * { pointer-events: none; }
+.pl-play { width: 68px; height: 68px; background: rgba(255, 255, 255, .16); backdrop-filter: blur(6px); }
+.pl-seekrow { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pl-seek { position: relative; flex: 1; height: 28px; display: flex; align-items: center; cursor: pointer; touch-action: none; }
+.pl-seek .trk { position: relative; width: 100%; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .25); }
+.pl-seek .buf, .pl-seek .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; width: 0; }
+.pl-seek .buf { background: rgba(255, 255, 255, .35); }
+.pl-seek .fill { background: var(--accent); }
+.pl-seek .knob { position: absolute; top: 50%; left: 0; width: 14px; height: 14px; border-radius: 50%; background: #fff; transform: translate(-50%, -50%); box-shadow: 0 2px 6px rgba(0, 0, 0, .5); }
+.pl-seek .tip { position: absolute; bottom: 26px; transform: translateX(-50%); background: var(--pl-panel); padding: 2px 8px; border-radius: 8px; font-size: 12px; display: none; }
+.pl-seek.drag .tip { display: block; } .pl-seek.drag .knob { width: 20px; height: 20px; }
+.pl-tools { display: flex; align-items: center; gap: 4px; }
+.pl-tools .vol { display: flex; align-items: center; gap: 2px; }
+.pl-tools input[type=range] { width: 84px; accent-color: var(--accent); }
+.pl-tools .grow { flex: 1; }
+.pl-pill { height: 34px; padding: 0 12px; white-space: nowrap; border-radius: 99px; background: rgba(255, 255, 255, .14); font-weight: 700; font-size: 13px; }
+.pl-hud { position: absolute; top: 18%; left: 50%; transform: translateX(-50%); min-width: 150px; padding: 10px 16px; border-radius: 16px; background: var(--pl-panel); display: flex; align-items: center; gap: 10px; pointer-events: none; }
+.pl-hud .bar { flex: 1; background: rgba(255, 255, 255, .2); }
+.pl-ripple { position: absolute; top: 50%; width: 120px; height: 120px; margin-top: -60px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, .16); font-weight: 800; opacity: 0; pointer-events: none; text-align: center; font-size: 13px; }
+.pl-ripple.l { left: 8%; } .pl-ripple.r { right: 8%; }
+.pl-ripple.go { animation: ripple .6s ease-out; }
+@keyframes ripple { 0% { opacity: 0; transform: scale(.7); } 25% { opacity: 1; } 100% { opacity: 0; transform: scale(1.15); } }
+.pl-spin { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, .25); border-top-color: var(--accent); animation: spin .8s linear infinite; pointer-events: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pl-error { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; text-align: center; padding: 28px; background: rgba(0, 0, 0, .82); }
+.pl-error p { margin: 0; max-width: 420px; color: var(--pl-fg2); }
+.pl-error h3 { font-size: 17px; }
+.pl-menu { position: absolute; inset: 0; display: flex; align-items: flex-end; justify-content: center; background: rgba(0, 0, 0, .45); padding: env(safe-area-inset-bottom, 0px) 0 0; }
+.pl-menu .box { width: min(100%, 460px); max-height: 80%; overflow-y: auto; background: var(--pl-panel); border-radius: 20px 20px 0 0; padding: 8px 12px 16px; animation: up .22s both; border: 1px solid var(--pl-line); }
+.pl-menu h4 { margin: 10px 6px 6px; font-family: var(--font-display); font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.pl-menu .opt { display: flex; align-items: center; gap: 14px; height: 48px; padding: 0 8px; border-radius: 12px; width: 100%; text-align: left; color: var(--pl-fg); font-weight: 600; }
+.pl-menu .opt:active { background: rgba(255, 255, 255, .1); }
+.pl-menu .opt small { margin-left: auto; color: var(--pl-fg2); font-weight: 500; }
+.pl-menu .opt .ck { color: var(--accent); margin-left: auto; }
+.pl-menu .opt[disabled] { opacity: .45; }
+@media (max-height: 430px) {
+  .pl-top, .pl-bottom { padding-block: 6px; } .pl-bottom { padding-top: 14px; }
+  .pl-play { width: 56px; height: 56px; } .pl-btn { width: 40px; height: 40px; }
+}
+@media (min-width: 700px) { .grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); } .rail .card { width: 190px; } }
+
+</style>
+<div id="splash" aria-label="RAW Stream is loading"></div>
+<script>
+window.RAW_NO_DEMO = true;
+/* ===== MODULE: core =====
+   Namespace, DOM helpers, icons, storage, settings, sheets, toasts.
+   Other modules extend the app through these registries:
+     RAW.screens         bottom-nav screens          {id,label,icon,render(el)}
+     RAW.homeSections    Home dashboard sections     {id,title,items(),render?(el)}
+     RAW.settingsSchema  Settings groups             {section,items:[{key,label,type,...}]}
+     RAW.itemActions     "..." menu on every video   {id,label,icon,when(item),run(item)}
+*/
+'use strict';
+(function () {
+  const RAW = window.RAW = {
+    version: '1.0.0', developer: 'SR Shadikur Rahman',
+    screens: [], homeSections: [], settingsSchema: [], itemActions: [], sources: [],
+  };
+
+  /* ---------- helpers ---------- */
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  function h(tag, props, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(props || {})) {
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'style' && typeof v === 'object') Object.assign(el.style, v);
+      else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2).toLowerCase(), v);
+      else if (['value', 'checked', 'disabled', 'hidden', 'selected'].includes(k)) el[k] = v;
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+    (function add(list) {
+      for (const c of list) {
+        if (c == null || c === false) continue;
+        if (Array.isArray(c)) add(c);
+        else el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+      }
+    })(kids);
+    return el;
+  }
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  function fmtTime(s) {
+    if (!isFinite(s) || s < 0) s = 0;
+    s = Math.floor(s);
+    const hh = Math.floor(s / 3600), mm = Math.floor((s % 3600) / 60), ss = s % 60;
+    return (hh ? hh + ':' + String(mm).padStart(2, '0') : mm) + ':' + String(ss).padStart(2, '0');
+  }
+  function fmtBytes(n) {
+    if (!isFinite(n) || n <= 0) return '0 B';
+    const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)) + ' ' + u[i];
+  }
+  function fmtDate(t) {
+    try { return new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; }
+  }
+  function fmtAgo(t) {
+    const d = (Date.now() - t) / 1000;
+    if (d < 60) return 'just now';
+    if (d < 3600) return Math.floor(d / 60) + ' min ago';
+    if (d < 86400) return Math.floor(d / 3600) + ' h ago';
+    return fmtDate(t);
+  }
+  const QLABEL = { 480: '480p', 720: '720p', 1080: '1080p', 1440: '2K', 2160: '4K', 4320: '8K' };
+  function qLabel(height) {
+    const keys = Object.keys(QLABEL).map(Number).sort((a, b) => b - a);
+    for (const k of keys) if (height >= k) return QLABEL[k];
+    return height ? height + 'p' : 'SD';
+  }
+  function hashStr(s) {
+    let x = 5381; for (let i = 0; i < s.length; i++) x = ((x << 5) + x + s.charCodeAt(i)) >>> 0;
+    return x.toString(36);
+  }
+
+  /* ---------- icons ---------- */
+  const P = {
+    home: '<path d="M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+    video: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/>',
+    download: '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/>',
+    library: '<path d="M5 4h14v17l-7-4-7 4z"/>',
+    sliders: '<path d="M4 6h8M18 6h2M4 12h2M12 12h8M4 18h10M20 18h0"/><circle cx="15" cy="6" r="2.2"/><circle cx="9" cy="12" r="2.2"/><circle cx="17" cy="18" r="2.2"/>',
+    play: '<path d="M7 4.5v15l13-7.5z" fill="currentColor"/>',
+    pause: '<path d="M7 4h3.5v16H7zM13.5 4H17v16h-3.5z" fill="currentColor"/>',
+    heart: '<path d="M12 20.5s-7.5-4.6-9.3-9.2C1.4 8 3.4 4.8 6.7 4.8c2 0 3.5 1.1 5.3 3 1.8-1.9 3.3-3 5.3-3 3.3 0 5.3 3.200 4 6.500C19.500 15.900 12 20.500 12 20.500z"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
+    more: '<circle cx="12" cy="5" r="1.7" fill="currentColor"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/><circle cx="12" cy="19" r="1.7" fill="currentColor"/>',
+    check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    x: '<path d="M6 6l12 12M18 6L6 18"/>',
+    chevL: '<path d="M15 5l-7 7 7 7"/>', chevR: '<path d="M9 5l7 7-7 7"/>',
+    chevD: '<path d="M5 9l7 7 7-7"/>', chevU: '<path d="M5 15l7-7 7 7"/>',
+    trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+    fs: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    exitfs: '<path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/>',
+    pip: '<rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="12" width="7" height="5" rx="1" fill="currentColor"/>',
+    vol: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.500a8 8 0 0 1 0 11"/>',
+    mute: '<path d="M4 9.5v5h3.5L12 19V5L7.5 9.5z" fill="currentColor"/><path d="M16 9.500l5 5M21 9.500l-5 5"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2.500M12 19.500V22M2 12h2.500M19.500 12H22M4.900 4.900l1.800 1.800M17.300 17.300l1.800 1.800M4.900 19.100l1.800-1.800M17.300 6.700l1.800-1.800"/>',
+    speed: '<path d="M4 17a8 8 0 1 1 16 0M12 17l4-5"/>',
+    cc: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10.500 10.500a2.500 2.500 0 1 0 0 3M17.500 10.500a2.500 2.500 0 1 0 0 3"/>',
+    audio: '<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.500"/><rect x="17" y="14" width="4" height="6" rx="1.500"/>',
+    hd: '<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10v4M7 12h3M10 10v4M13.500 10v4h1.200a2 2 0 0 0 2-2v0a2 2 0 0 0-2-2z"/>',
+    back10: '<path d="M12 5a8 8 0 1 1-7.500 5.300M12 5V2L8 5l4 3"/><text x="12" y="16" font-size="7.500" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
+    fwd10: '<path d="M12 5a8 8 0 1 0 7.500 5.300M12 5V2l4 3-4 3"/><text x="12" y="16" font-size="7.500" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none">10</text>',
+    next: '<path d="M6 5v14l9-7z" fill="currentColor"/><path d="M18 5v14"/>',
+    prev: '<path d="M18 5v14l-9-7z" fill="currentColor"/><path d="M6 5v14"/>',
+    list: '<path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
+    edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+    eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+    eyeoff: '<path d="M3 3l18 18M10.600 6.100A9.800 9.800 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3 3.800M6.500 7.600A17 17 0 0 0 2 12s4 7 10 7c1.500 0 2.800-.4 4-1"/>',
+    retry: '<path d="M20 11a8 8 0 1 0-2 6M20 4v7h-7"/>',
+    folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    rotate: '<path d="M4 12a8 8 0 0 1 14-5.300M20 4v4h-4M20 12a8 8 0 0 1-14 5.300M4 20v-4h4"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    wifi: '<path d="M2 9a15 15 0 0 1 20 0M5 12.500a10 10 0 0 1 14 0M8.500 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19.200" r="1" fill="currentColor"/>',
+    tv: '<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    file: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/>',
+    up: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+    down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+    filter: '<path d="M4 5h16l-6 8v6l-4-2v-4z"/>',
+    star: '<path d="M12 3.500l2.700 5.600 6.100.9-4.400 4.300 1 6.100-5.400-2.900-5.400 2.900 1-6.100-4.400-4.300 6.100-.9z"/>',
+    spark: '<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M6 18l3-3M15 9l3-3"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.500h.01"/>',
+    pause2: '<circle cx="12" cy="12" r="9"/><path d="M10 9v6M14 9v6"/>',
+  };
+  function icon(name, size = 20, filled = false) {
+    const s = h('span', { class: 'ic', 'aria-hidden': 'true' });
+    s.innerHTML = `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${filled ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${P[name] || ''}</svg>`;
+    return s;
+  }
+  function logo(size = 40) {
+    const s = h('span', { class: 'ic', style: { width: size + 'px', height: size + 'px' }, 'aria-hidden': 'true' });
+    s.innerHTML = `<svg viewBox="0 0 48 48" width="${size}" height="${size}"><rect width="48" height="48" rx="14" fill="var(--accent)"/><path d="M8 17h12M5 24h15M8 31h12" stroke="var(--on-accent)" stroke-width="3.2" stroke-linecap="round" opacity=".55"/><path d="M23 13.500v21l17-10.500z" fill="var(--on-accent)"/></svg>`;
+    return s;
+  }
+  RAW.util = { $, $$, h, clamp, fmtTime, fmtBytes, fmtDate, fmtAgo, qLabel, hashStr, icon, logo, QLABEL };
+
+  /* ---------- event bus ---------- */
+  const handlers = {};
+  RAW.bus = {
+    on(ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); return () => { handlers[ev] = handlers[ev].filter(f => f !== fn); }; },
+    emit(ev, data) { (handlers[ev] || []).slice().forEach(fn => { try { fn(data); } catch (e) { console.warn('handler failed', ev, e); } }); },
+  };
+
+  /* ---------- key/value store (localStorage, memory fallback) ---------- */
+  const mem = {};
+  RAW.store = {
+    get(k, d) {
+      try { const v = localStorage.getItem('raw:' + k); if (v != null) return JSON.parse(v); } catch { /* fall through */ }
+      return k in mem ? mem[k] : d;
+    },
+    set(k, v) {
+      mem[k] = v;
+      try { localStorage.setItem('raw:' + k, JSON.stringify(v)); } catch { /* storage unavailable */ }
+    },
+  };
+
+  /* ---------- IndexedDB (blobs, thumbs, download chunks) with memory fallback ---------- */
+  const STORES = ['thumbs', 'local', 'dl', 'chunks', 'blobs'];
+  const memDB = {};
+  let dbp = null;
+  function openDB() {
+    if (dbp) return dbp;
+    dbp = new Promise((res, rej) => {
+      try {
+        const r = indexedDB.open('rawstream', 1);
+        r.onupgradeneeded = () => { STORES.forEach(s => { if (!r.result.objectStoreNames.contains(s)) r.result.createObjectStore(s); }); };
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+        r.onblocked = () => rej(new Error('blocked'));
+      } catch (e) { rej(e); }
+    }).catch(e => { console.warn('IndexedDB unavailable, using memory only', e); return null; });
+    return dbp;
+  }
+  const mm = s => (memDB[s] = memDB[s] || new Map());
+  RAW.db = {
+    async get(s, k) {
+      const db = await openDB();
+      if (!db) return mm(s).get(k);
+      return new Promise((res, rej) => { const r = db.transaction(s).objectStore(s).get(k); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+    },
+    async put(s, k, v) {
+      const db = await openDB();
+      if (!db) { mm(s).set(k, v); return; }
+      return new Promise((res, rej) => {
+        const t = db.transaction(s, 'readwrite'); t.objectStore(s).put(v, k);
+        t.oncomplete = () => res(); t.onabort = () => rej(t.error || new Error('aborted')); t.onerror = () => rej(t.error);
+      });
+    },
+    async del(s, k) {
+      const db = await openDB();
+      if (!db) { mm(s).delete(k); return; }
+      return new Promise((res, rej) => { const t = db.transaction(s, 'readwrite'); t.objectStore(s).delete(k); t.oncomplete = () => res(); t.onabort = () => rej(t.error); });
+    },
+    async all(s) {
+      const db = await openDB();
+      if (!db) return [...mm(s).entries()].map(([k, v]) => ({ k, v }));
+      return new Promise((res, rej) => {
+        const out = []; const r = db.transaction(s).objectStore(s).openCursor();
+        r.onsuccess = () => { const c = r.result; if (c) { out.push({ k: c.key, v: c.value }); c.continue(); } else res(out); };
+        r.onerror = () => rej(r.error);
+      });
+    },
+    async clear(s) {
+      const db = await openDB();
+      if (!db) { mm(s).clear(); return; }
+      return new Promise((res, rej) => { const t = db.transaction(s, 'readwrite'); t.objectStore(s).clear(); t.oncomplete = () => res(); t.onabort = () => rej(t.error); });
+    },
+    async delPrefix(s, prefix) {
+      const rows = await this.all(s);
+      for (const r of rows) if (String(r.k).startsWith(prefix)) await this.del(s, r.k);
+    },
+  };
+
+  /* ---------- settings ---------- */
+  const DEFAULTS = {
+    theme: 'dark', accent: '#ff6b4a', anim: true,
+    autoQ: true, defQuality: 1080, defSpeed: 1, autoFs: false, remember: true, autoNext: true, subPref: 'off',
+    dlQuality: 'highest', wifiOnly: false, maxDl: 2,
+  };
+  let cfg = Object.assign({}, DEFAULTS, RAW.store.get('settings', {}));
+  RAW.settings = {
+    DEFAULTS,
+    get(k) { return k in cfg ? cfg[k] : DEFAULTS[k]; },
+    set(k, v) { cfg = Object.assign({}, cfg, { [k]: v }); RAW.store.set('settings', cfg); RAW.bus.emit('setting:' + k, v); RAW.bus.emit('setting', { k, v }); },
+    reset() { cfg = Object.assign({}, DEFAULTS); RAW.store.set('settings', cfg); Object.keys(DEFAULTS).forEach(k => RAW.bus.emit('setting:' + k, cfg[k])); },
+  };
+  function lum(hex) {
+    const n = parseInt(hex.slice(1), 16), c = [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => { v /= 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });
+    return .2126 * c[0] + .7152 * c[1] + .0722 * c[2];
+  }
+  function applyTheme() {
+    const t = RAW.settings.get('theme'), root = document.documentElement;
+    if (t === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+  }
+  function applyAccent() {
+    const a = RAW.settings.get('accent') || DEFAULTS.accent, root = document.documentElement;
+    root.style.setProperty('--accent', a);
+    root.style.setProperty('--on-accent', lum(a) > .34 ? '#140a05' : '#ffffff');
+  }
+  function applyAnim() { document.documentElement.classList.toggle('anim-off', !RAW.settings.get('anim')); }
+  RAW.bus.on('setting:theme', applyTheme); RAW.bus.on('setting:accent', applyAccent); RAW.bus.on('setting:anim', applyAnim);
+  RAW.applyAppearance = () => { applyTheme(); applyAccent(); applyAnim(); };
+
+  /* ---------- toasts ---------- */
+  let toastBox;
+  RAW.toast = function (msg, opt = {}) {
+    if (!toastBox) { toastBox = h('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' }); document.body.appendChild(toastBox); }
+    const t = h('div', { class: 'toast' }, h('span', {}, msg));
+    if (opt.action) t.appendChild(h('button', { onclick: () => { try { opt.action.fn(); } finally { t.remove(); } } }, opt.action.label));
+    toastBox.appendChild(t);
+    while (toastBox.children.length > 3) toastBox.firstChild.remove();
+    setTimeout(() => t.remove(), opt.ms || 3200);
+  };
+
+  /* ---------- sheets ---------- */
+  const sheets = [];
+  RAW.sheet = {
+    open({ title, body, full = false, onClose, right }) {
+      const back = h('div', { class: 'sheet-back' });
+      const bodyEl = h('div', { class: 'sheet-body' });
+      const sheetEl = h('div', { class: 'sheet' + (full ? ' full' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': title || 'Dialog' },
+        h('div', { class: 'sheet-head' }, h('h2', {}, title || ''), right || null,
+          h('button', { class: 'iconbtn plain', 'aria-label': 'Close', onclick: () => api.close() }, icon('x', 22))),
+        bodyEl);
+      const wrap = h('div', { class: 'sheet-wrap' }, back, sheetEl);
+      let closed = false;
+      const api = {
+        el: bodyEl, wrap,
+        close() { if (closed) return; closed = true; wrap.remove(); const i = sheets.indexOf(api); if (i >= 0) sheets.splice(i, 1); if (onClose) onClose(); },
+        set(content) { bodyEl.replaceChildren(...[].concat(content).filter(Boolean)); },
+        setTitle(t) { $('h2', sheetEl).textContent = t; },
+      };
+      back.addEventListener('click', () => api.close());
+      api.set(body);
+      document.body.appendChild(wrap);
+      sheets.push(api);
+      return api;
+    },
+    actions(title, list) {
+      const s = RAW.sheet.open({ title });
+      s.set(list.filter(Boolean).map(a => h('button', { class: 'act' + (a.danger ? ' danger' : ''), onclick: () => { s.close(); a.run && a.run(); } },
+        a.icon ? icon(a.icon, 22) : null, h('span', {}, a.label), a.hint ? h('small', {}, a.hint) : null)));
+      return s;
+    },
+    confirm({ title, text, ok = 'Confirm', danger = false, onOk }) {
+      const s = RAW.sheet.open({ title });
+      s.set([h('p', { class: 'muted', style: { margin: 0 } }, text),
+        h('div', { class: 'btnrow' },
+          h('button', { class: 'btn', onclick: () => s.close() }, 'Cancel'),
+          h('button', { class: 'btn ' + (danger ? 'danger' : 'primary'), onclick: () => { s.close(); onOk && onOk(); } }, ok))]);
+      return s;
+    },
+    prompt({ title, label, value = '', ok = 'Save', placeholder = '', onOk }) {
+      const inp = h('input', { class: 'textin', id: 'prompt-in', value, placeholder, maxlength: 60, autocomplete: 'off' });
+      const s = RAW.sheet.open({ title });
+      const submit = () => { const v = inp.value.trim(); if (!v) { inp.focus(); return; } s.close(); onOk && onOk(v); };
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+      s.set([h('div', { class: 'formrow' }, h('label', { for: 'prompt-in' }, label || title), inp),
+        h('div', { class: 'btnrow' }, h('button', { class: 'btn', onclick: () => s.close() }, 'Cancel'), h('button', { class: 'btn primary', onclick: submit }, ok))]);
+      setTimeout(() => { inp.focus(); inp.select(); }, 60);
+      return s;
+    },
+    closeAll() { sheets.slice().forEach(s => s.close()); },
+  };
+
+  /* ---------- safety net: never crash on stray errors ---------- */
+  let lastErr = 0;
+  function soft(e) {
+    console.warn('RAW Stream caught:', e);
+    if (Date.now() - lastErr > 4000) { lastErr = Date.now(); RAW.toast('Something went wrong. RAW Stream is still running.'); }
+  }
+  window.addEventListener('error', e => { if (e.target && e.target !== window) return; soft(e.error || e.message); });
+  window.addEventListener('unhandledrejection', e => { soft(e.reason); e.preventDefault(); });
+})();
+
+/* ===== MODULE: data =====
+   Catalog sources, item lookup, favorites, playlists, watch history, search history,
+   and the local-video library (files picked from the phone).
+   To add a catalog source: RAW.sources.push({id, name, load: async () => [items]}).
+*/
+(function () {
+  const { h, hashStr, qLabel } = RAW.util;
+  const { store, bus, db } = RAW;
+
+  /* ---------- demo catalog (original clips generated for RAW Stream, free to use) ---------- */
+  const rend = (id, sizes) => Object.fromEntries(Object.entries(sizes).map(([q, size]) => [q, { url: `media/${id}_${q}.mp4`, size, codec: 'avc1.640028' }]));
+  /* Demo subtitles are tiny, so they are embedded as data: URIs (works offline, and needs no .vtt hosting). */
+  const vtt = (a, b) => 'data:text/vtt;charset=utf-8,' + encodeURIComponent('WEBVTT\n\n00:00:00.500 --> 00:00:04.000\n' + a + '\n\n00:00:04.500 --> 00:00:09.500\n' + b + '\n');
+  const SUB_EN = vtt('RAW Stream demo clip', 'Generated for testing. Free to use.');
+  const SUB_BN = vtt('RAW Stream ডেমো ক্লিপ', 'পরীক্ষার জন্য তৈরি। যে কেউ ব্যবহার করতে পারবেন।');
+  const subs = () => [{ lang: 'en', label: 'English', url: SUB_EN }, { lang: 'bn', label: 'বাংলা', url: SUB_BN }];
+  const DEMO = [
+    { id: 'c:aurora', title: 'Aurora Drift', type: 'movie', year: 2026, duration: 10, rating: 'U', featured: true, trending: true, added: 20260901,
+      desc: 'Slow bands of colour drift across the frame in an ambient study of light. A calm test clip with a soft tremolo tone.',
+      tags: ['Abstract', 'Ambient'], thumb: 'media/aurora.jpg', downloadable: true, qualities: rend('aurora', { 480: 191577, 720: 266217, 1080: 376044 }), subs: subs('aurora') },
+    { id: 'c:mandel', title: 'Infinite Bloom', type: 'series', year: 2026, duration: 10, rating: 'U', featured: true, trending: true, added: 20260920, ep: 'S1 · E1',
+      desc: 'A continuous zoom into the Mandelbrot set. Detail never runs out. The 1080p version is a good stress test for slow phones.',
+      tags: ['Fractal', 'Science'], thumb: 'media/mandel.jpg', downloadable: true, qualities: rend('mandel', { 480: 433767, 720: 812911, 1080: 3226818 }), subs: subs('mandel') },
+    { id: 'c:sierp', title: 'Carpet of Squares', type: 'tv', year: 2025, duration: 10, rating: 'U', trending: false, added: 20250815,
+      desc: 'A Sierpinski carpet builds itself over ten seconds. Sharp edges make compression quality easy to compare across 480p, 720p and 1080p.',
+      tags: ['Pattern', 'Geometry'], thumb: 'media/sierp.jpg', downloadable: true, qualities: rend('sierp', { 480: 1151794, 720: 1285608, 1080: 2974251 }), subs: subs('sierp') },
+    { id: 'c:bloom', title: 'Life Bloom', type: 'movie', year: 2025, duration: 10, rating: 'U', featured: true, trending: true, added: 20251101,
+      desc: 'A cellular automaton blooms in teal and rose. Busy motion that pushes bitrate, so it shows how quality choice changes file size.',
+      tags: ['Simulation', 'Motion'], thumb: 'media/bloom.jpg', downloadable: true, qualities: rend('bloom', { 480: 2337155, 720: 4190451, 1080: 5412619 }), subs: subs('bloom') },
+    { id: 'c:rain', title: 'Cell Rain', type: 'series', year: 2024, duration: 10, rating: 'U', ep: 'S1 · E2', added: 20240601,
+      desc: 'Rule 110 scrolls down the screen like rain. This one is stream-only: its source does not allow downloads, so the Download button is locked.',
+      tags: ['Automata', 'Minimal'], thumb: 'media/rain.jpg', downloadable: false, qualities: rend('rain', { 480: 234092, 720: 460518, 1080: 1036579 }), subs: subs('rain') },
+  ];
+  /* The hosted build sets window.RAW_NO_DEMO so it does not list clips it does not ship with. */
+  if (!window.RAW_NO_DEMO) RAW.sources.push({ id: 'demo', name: 'RAW Stream demo clips', load: async () => DEMO });
+
+  const catalog = new Map();
+  async function loadSources() {
+    for (const s of RAW.sources) {
+      try { (await s.load()).forEach(it => catalog.set(it.id, Object.assign({ kind: 'catalog', source: s.id }, it))); }
+      catch (e) { console.warn('Source failed', s.id, e); RAW.toast(`Could not load "${s.name}"`); }
+    }
+  }
+
+  /* ---------- local library ---------- */
+  const local = new Map();           // id -> item (file kept in memory for this session)
+  const thumbMem = new Map();        // id -> data URL
+  const VIDEO_EXT = /\.(mp4|m4v|mkv|webm|mov|avi|3gp|ts|mpg|mpeg|ogv|flv|wmv)$/i;
+  const Local = {
+    all() { return [...local.values()]; },
+    folders() { return store.get('folders', []); },
+    async load() {
+      try {
+        const rows = await db.all('local');
+        rows.forEach(({ v }) => local.set(v.id, Object.assign(v, { kind: 'local', type: 'local', file: null })));
+      } catch (e) { console.warn('Local library load failed', e); }
+    },
+    persist(it) {
+      const { file, ...rest } = it; void file;
+      return db.put('local', it.id, rest).catch(e => console.warn('persist failed', e));
+    },
+    isVideo(f) { return (f.type && f.type.startsWith('video/')) || VIDEO_EXT.test(f.name); },
+    /* Add files. `onProgress(done,total)` is optional. Returns number of videos added or re-linked. */
+    async addFiles(list, { onProgress } = {}) {
+      const files = [...list]; let added = 0, scanned = 0;
+      for (const f of files) {
+        scanned++; if (onProgress) onProgress(scanned, files.length);
+        if (!Local.isVideo(f)) continue;
+        const folder = f.webkitRelativePath ? f.webkitRelativePath.split('/')[0] : '';
+        const id = 'l:' + hashStr(f.name + '|' + f.size + '|' + f.lastModified);
+        const had = local.get(id);
+        const it = had || { id, kind: 'local', type: 'local', title: f.name.replace(/\.[^.]+$/, ''), name: f.name, size: f.size, date: f.lastModified || Date.now(), folder, duration: 0, height: 0, added: Date.now() };
+        it.file = f;
+        local.set(id, it);
+        if (!had || !it.duration) await Local.probe(it);
+        Local.persist(it);
+        added++;
+        if (scanned % 5 === 0) await new Promise(r => setTimeout(r, 0));
+      }
+      if (folderAdd(files)) bus.emit('local:folders');
+      bus.emit('local:change');
+      return added;
+    },
+    /* Read duration/size from the file; failure just means "format not decodable here". */
+    probe(it) {
+      return new Promise(res => {
+        const v = document.createElement('video'); const url = URL.createObjectURL(it.file);
+        let done = false;
+        const fin = ok => { if (done) return; done = true; if (ok) { it.duration = v.duration || 0; it.height = v.videoHeight || 0; } else it.unsupported = true; URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); res(); };
+        v.preload = 'metadata'; v.muted = true;
+        v.onloadedmetadata = () => fin(true); v.onerror = () => fin(false);
+        setTimeout(() => fin(false), 6000);
+        v.src = url;
+      });
+    },
+    remove(id) { local.delete(id); db.del('local', id); db.del('thumbs', id); thumbMem.delete(id); bus.emit('local:change'); },
+    removeFolder(name) {
+      Local.all().filter(i => i.folder === name).forEach(i => { local.delete(i.id); db.del('local', i.id); db.del('thumbs', i.id); thumbMem.delete(i.id); });
+      store.set('folders', Local.folders().filter(f => f.name !== name)); bus.emit('local:change'); bus.emit('local:folders');
+    },
+  };
+  function folderAdd(files) {
+    const names = new Set(files.map(f => f.webkitRelativePath && f.webkitRelativePath.split('/')[0]).filter(Boolean));
+    if (!names.size) return false;
+    const cur = Local.folders();
+    names.forEach(n => { const c = files.filter(f => f.webkitRelativePath && f.webkitRelativePath.startsWith(n + '/') && Local.isVideo(f)).length; const e = cur.find(x => x.name === n); if (e) { e.count = c; e.scanned = Date.now(); } else cur.push({ name: n, count: c, scanned: Date.now() }); });
+    store.set('folders', cur);
+    return true;
+  }
+
+  /* local thumbnails: one at a time, cached in IndexedDB so scrolling stays smooth */
+  let thumbQueue = Promise.resolve();
+  Local.thumb = function (it) {
+    if (thumbMem.has(it.id)) return Promise.resolve(thumbMem.get(it.id));
+    return db.get('thumbs', it.id).then(cached => {
+      if (cached) { thumbMem.set(it.id, cached); return cached; }
+      if (!it.file || it.unsupported) return null;
+      thumbQueue = thumbQueue.then(() => makeThumb(it)).catch(() => null);
+      return thumbQueue;
+    }).catch(() => null);
+  };
+  function makeThumb(it) {
+    return new Promise(res => {
+      const v = document.createElement('video'); const url = URL.createObjectURL(it.file);
+      let done = false;
+      const fin = data => { if (done) return; done = true; URL.revokeObjectURL(url); v.removeAttribute('src'); v.load(); if (data) { thumbMem.set(it.id, data); db.put('thumbs', it.id, data).catch(() => { }); } res(data); };
+      v.muted = true; v.preload = 'auto'; v.playsInline = true;
+      v.onloadeddata = () => { try { v.currentTime = Math.min(Math.max(v.duration * 0.1, 0.5), 8); } catch { fin(null); } };
+      v.onseeked = () => {
+        try { const c = document.createElement('canvas'); c.width = 320; c.height = Math.round(320 * (v.videoHeight || 9) / (v.videoWidth || 16)); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); fin(c.toDataURL('image/jpeg', 0.7)); } catch { fin(null); }
+      };
+      v.onerror = () => fin(null);
+      setTimeout(() => fin(null), 8000);
+      v.src = url;
+    });
+  }
+  Local.clearThumbs = async function () { thumbMem.clear(); await db.clear('thumbs'); };
+
+  /* ---------- items ---------- */
+  const Items = {
+    byId(id) { return catalog.get(id) || local.get(id) || null; },
+    catalog() { return [...catalog.values()]; },
+    /* Replace everything that came from one source (used by repositories). */
+    setSource(sourceId, items) {
+      for (const [k, v] of catalog) if (v.source === sourceId) catalog.delete(k);
+      (items || []).forEach(it => catalog.set(it.id, Object.assign({}, it, { kind: 'catalog', source: sourceId })));
+      bus.emit('lib:change');
+    },
+    local() { return Local.all(); },
+    all() { return [...Items.catalog(), ...Items.local()]; },
+    /* highest height this item can offer */
+    maxQ(it) { return it.kind === 'local' ? (it.height || 0) : Math.max(0, ...Object.keys(it.qualities || {}).map(Number)); },
+    qualities(it) { return it.kind === 'local' ? (it.height ? [it.height] : []) : Object.keys(it.qualities || {}).map(Number).sort((a, b) => b - a); },
+    typeLabel(it) { return { movie: 'Movie', series: 'Series', tv: 'TV Show', local: 'My video' }[it.type] || 'Video'; },
+  };
+
+  /* ---------- favorites ---------- */
+  const Fav = {
+    list() { return store.get('favs', []); },
+    has(id) { return Fav.list().includes(id); },
+    toggle(id) {
+      const l = Fav.list(); const i = l.indexOf(id);
+      if (i >= 0) l.splice(i, 1); else l.unshift(id);
+      store.set('favs', l); bus.emit('lib:change'); return i < 0;
+    },
+  };
+
+  /* ---------- playlists ---------- */
+  const Playlists = {
+    list() { return store.get('playlists', []); },
+    save(l) { store.set('playlists', l); bus.emit('lib:change'); },
+    create(name) { const l = Playlists.list(); const p = { id: 'p' + Date.now().toString(36), name, items: [] }; l.push(p); Playlists.save(l); return p; },
+    rename(id, name) { const l = Playlists.list(); const p = l.find(x => x.id === id); if (p) { p.name = name; Playlists.save(l); } },
+    remove(id) { Playlists.save(Playlists.list().filter(p => p.id !== id)); },
+    add(id, itemId) { const l = Playlists.list(); const p = l.find(x => x.id === id); if (p && !p.items.includes(itemId)) { p.items.push(itemId); Playlists.save(l); return true; } return false; },
+    removeItem(id, itemId) { const l = Playlists.list(); const p = l.find(x => x.id === id); if (p) { p.items = p.items.filter(i => i !== itemId); Playlists.save(l); } },
+    move(id, idx, dir) { const l = Playlists.list(); const p = l.find(x => x.id === id); if (!p) return; const j = idx + dir; if (j < 0 || j >= p.items.length) return; [p.items[idx], p.items[j]] = [p.items[j], p.items[idx]]; Playlists.save(l); },
+    get(id) { return Playlists.list().find(p => p.id === id); },
+  };
+
+  /* ---------- watch history ---------- */
+  const History = {
+    map() { return store.get('history', {}); },
+    get(id) { return History.map()[id] || null; },
+    touch(id, pos, dur, done) {
+      if (!id || !isFinite(pos)) return;
+      const m = History.map(); const prev = m[id] || {};
+      m[id] = { pos: done ? 0 : pos, dur: dur || prev.dur || 0, t: Date.now(), done: !!done || (dur && pos / dur > 0.95) || false };
+      store.set('history', m);
+    },
+    pct(id) { const e = History.get(id); return e && e.dur ? Math.min(1, (e.done ? 1 : e.pos / e.dur)) : 0; },
+    recent() { return Object.entries(History.map()).sort((a, b) => b[1].t - a[1].t).map(([id, e]) => ({ id, ...e })).filter(e => Items.byId(e.id)); },
+    resumable() { return History.recent().filter(e => !e.done && e.pos > 3 && e.dur && e.pos < e.dur - 3); },
+    remove(id) { const m = History.map(); delete m[id]; store.set('history', m); bus.emit('lib:change'); },
+    clear() { store.set('history', {}); bus.emit('lib:change'); },
+  };
+
+  /* ---------- search history ---------- */
+  const SearchHist = {
+    list() { return store.get('searches', []); },
+    add(q) { q = q.trim(); if (q.length < 2) return; const l = SearchHist.list().filter(x => x.toLowerCase() !== q.toLowerCase()); l.unshift(q); store.set('searches', l.slice(0, 12)); },
+    remove(q) { store.set('searches', SearchHist.list().filter(x => x !== q)); },
+    clear() { store.set('searches', []); },
+  };
+
+  /* ---------- quality choice for a catalog item ---------- */
+  const decodeCache = new Map();
+  async function canDecode(item, q) {
+    const r = item.qualities[q]; if (!r) return false;
+    const webm = /\.webm(\?|#|$)/i.test(r.url || '');
+    const key = (r.codec || '') + (webm ? 'w' : 'm') + q; if (decodeCache.has(key)) return decodeCache.get(key);
+    let ok = true;
+    try {
+      if (navigator.mediaCapabilities && navigator.mediaCapabilities.decodingInfo) {
+        const w = Math.round(q * 16 / 9);
+        const info = await navigator.mediaCapabilities.decodingInfo({ type: 'file', video: { contentType: `video/${webm ? 'webm' : 'mp4'}; codecs="${r.codec || (webm ? 'vp09.00.40.08' : 'avc1.640028')}"`, width: w, height: q, bitrate: Math.max(300000, Math.round((r.size || 1e6) * 8 / (item.duration || 10))), framerate: 24 } });
+        ok = !!info.supported;
+      }
+    } catch { ok = true; }
+    decodeCache.set(key, ok); return ok;
+  }
+  /* Highest quality that the source offers and this device can decode. Only a slow or data-saver
+     connection lowers the pick. If decoding fails at runtime the player steps down (see player.js). */
+  async function pickAuto(item) {
+    const qs = Items.qualities(item); if (!qs.length) return null;
+    let cap = Infinity;   // no screen-size cap: pick the best the device can decode
+    const c = navigator.connection;
+    if (c) { if (c.saveData || ['slow-2g', '2g'].includes(c.effectiveType)) cap = Math.min(cap, 480); else if (c.effectiveType === '3g') cap = Math.min(cap, 720); }
+    for (const q of qs) if (q <= cap && await canDecode(item, q)) return q;
+    return qs[qs.length - 1];
+  }
+  function sizeOf(item, q) { return item.qualities && item.qualities[q] ? item.qualities[q].size : item.size || 0; }
+
+  RAW.data = { Items, Fav, Playlists, History, SearchHist, Local, loadSources, pickAuto, canDecode, sizeOf, qLabel };
+  void h;
+})();
+
+/* ===== MODULE: repos =====
+   Repositories: a link to a JSON file that lists videos. Add one in Settings > Video sources and its
+   videos appear in Home, Search and Library next to everything else.
+
+   RAW Stream ships no videos and no scrapers. A repository is plain data that the owner publishes.
+   Rules enforced here:
+     - the link must be https (http only for localhost, for testing)
+     - every video must name a license; downloads need  "downloadable": true  AND a license
+     - only http(s) links are kept; text is never run as code
+   File format: see FORMAT_EXAMPLE below, also shown inside the app (Settings > Video sources > Format).
+*/
+(function () {
+  const { h, icon, hashStr, fmtAgo } = RAW.util;
+  const { store, bus } = RAW;
+
+  const KEY = 'repos', KEEP = 'repokeep', CACHE = 'repocache:';
+  const MAX_REPOS = 20, MAX_ITEMS = 2000, MAX_BYTES = 5 * 1024 * 1024, TIMEOUT = 12000;
+
+  const FORMAT_EXAMPLE = `{
+  "raw": 1,
+  "name": "My videos",
+  "items": [
+    {
+      "id": "lesson-1",
+      "title": "Lesson 1",
+      "type": "series",
+      "year": 2026,
+      "duration": 600,
+      "description": "Short text about the video",
+      "license": "My own video",
+      "downloadable": true,
+      "thumb": "lesson-1.jpg",
+      "qualities": {
+        "480": { "url": "lesson-1-480.mp4", "size": 18000000 },
+        "720": { "url": "lesson-1-720.mp4", "size": 40000000 },
+        "1080": "lesson-1-1080.mp4"
+      },
+      "subtitles": [ { "lang": "bn", "label": "বাংলা", "url": "lesson-1.bn.vtt" } ]
+    }
+  ]
+}`;
+
+  const state = new Map();   // repoId -> { status: 'loading' | 'ok' | 'error', error, count, skipped, at }
+  const userErr = (msg, code) => { const e = new Error(code || 'repo'); e.userMsg = msg; return e; };
+
+  /* ---------- link checks ---------- */
+  function cleanUrl(input) {
+    let u;
+    try { u = new URL(String(input || '').trim()); } catch { throw userErr('That does not look like a link. Paste the full link, starting with https://'); }
+    const local = ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname);
+    if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) throw userErr('Use a secure link that starts with https://');
+    if (/^(www\.)?github\.com$/i.test(u.hostname) && !/\.json$/i.test(u.pathname)) throw userErr('This is a GitHub page, not the repository file. Paste the link to the .json file (for example https://yourname.github.io/yourrepo/repo.json).');
+    u.hash = '';
+    return u;
+  }
+  const safeHref = (v, base, allowData) => {
+    if (typeof v !== 'string' || !v.trim() || v.length > 2000) return '';
+    if (allowData && /^data:text\/vtt[;,]/i.test(v.trim())) return v.trim();
+    try { const u = new URL(v.trim(), base); return (u.protocol === 'https:' || (u.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(u.hostname))) ? u.href : ''; } catch { return ''; }
+  };
+  const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+  const num = v => (typeof v === 'number' && isFinite(v) && v >= 0 ? v : 0);
+
+  /* Poster used when a video has no thumbnail: first letter on a dark tile (a data: image, no request). */
+  const placeholder = title => 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180"><rect width="320" height="180" fill="#1e2742"/><text x="160" y="118" font-family="sans-serif" font-size="84" font-weight="700" text-anchor="middle" fill="#6e7896">' + (Array.from(title)[0] || '?').toUpperCase().replace(/[<>&"']/g, '') + '</text></svg>');
+
+  /* ---------- turn a repository file into catalog items ---------- */
+  function normalize(json, baseUrl, repoId) {
+    if (!json || typeof json !== 'object' || !Array.isArray(json.items)) throw userErr('This file is not a RAW Stream repository. It needs a list called "items". Open Format to see an example.');
+    const out = []; let skipped = 0;
+    const repoName = str(json.name, 60) || new URL(baseUrl).hostname;
+    json.items.slice(0, MAX_ITEMS).forEach((raw, idx) => {
+      try {
+        if (!raw || typeof raw !== 'object') throw 0;
+        const title = str(raw.title, 120); if (!title) throw 0;
+        const quals = {};
+        const q = raw.qualities && typeof raw.qualities === 'object' ? raw.qualities : {};
+        for (const [k, v] of Object.entries(q)) {
+          const height = parseInt(k, 10); if (!(height >= 144 && height <= 4320)) continue;
+          const entry = typeof v === 'string' ? { url: v } : (v && typeof v === 'object' ? v : null); if (!entry) continue;
+          const url = safeHref(entry.url, baseUrl); if (!url) continue;
+          quals[height] = { url, size: num(entry.size), codec: str(entry.codec, 40) || undefined };
+        }
+        if (!Object.keys(quals).length) throw 0;
+        const license = str(raw.license, 80);
+        const type = ['movie', 'series', 'tv'].includes(raw.type) ? raw.type : 'movie';
+        const subs = (Array.isArray(raw.subtitles) ? raw.subtitles : []).slice(0, 8).map(s => ({ lang: str(s && s.lang, 8) || 'en', label: str(s && s.label, 30) || 'Subtitles', url: safeHref(s && s.url, baseUrl, true) })).filter(s => s.url);
+        const idPart = str(String(raw.id == null ? '' : raw.id), 80) || hashStr(title + Object.values(quals)[0].url);
+        out.push({
+          id: 'r:' + repoId + ':' + idPart, title, type, year: num(raw.year) || '', duration: num(raw.duration), rating: str(raw.rating, 8),
+          ep: str(raw.episode, 16), desc: str(raw.description, 600), tags: (Array.isArray(raw.tags) ? raw.tags : []).slice(0, 6).map(t => str(t, 24)).filter(Boolean),
+          thumb: safeHref(raw.thumb, baseUrl) || placeholder(title), qualities: quals, subs, featured: raw.featured === true, trending: raw.trending === true,
+          added: num(raw.added) || (20000000 + idx), license, downloadable: raw.downloadable === true && !!license, repo: { id: repoId, name: repoName },
+        });
+      } catch { skipped++; }
+    });
+    return { name: repoName, items: out, skipped };
+  }
+
+  /* ---------- fetch ---------- */
+  async function fetchRepo(url) {
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), TIMEOUT);
+    try {
+      const res = await fetch(url, { cache: 'no-cache', credentials: 'omit', signal: ctrl.signal, headers: { Accept: 'application/json' } });
+      if (!res.ok) throw userErr('The repository answered ' + res.status + '. Check that the link is right and the file is public.');
+      const text = await res.text();
+      if (text.length > MAX_BYTES) throw userErr('This repository file is too large (over 5 MB).');
+      try { return JSON.parse(text); } catch { throw userErr('This link does not hold a repository file. The JSON could not be read.'); }
+    } catch (e) {
+      if (e && e.userMsg) throw e;
+      if (e && e.name === 'AbortError') throw userErr('The repository took too long to answer. Try again on a better connection.');
+      throw userErr(navigator.onLine === false ? 'No internet connection.' : 'Could not reach the repository. Check the link and your internet. The host must also allow other websites to read the file (CORS). Previews inside other apps can block outside links.');
+    } finally { clearTimeout(t); }
+  }
+
+  const R = RAW.repos = {
+    list() { return store.get(KEY, []); },
+    state(id) { return state.get(id) || { status: 'ok', count: 0 }; },
+    format() { return FORMAT_EXAMPLE; },
+
+    /* Add by link. Throws an error with .userMsg when the link cannot be used. */
+    async add(input) {
+      const u = cleanUrl(input), url = u.href;
+      const list = R.list();
+      if (list.some(r => r.url === url)) throw userErr('This repository is already added.');
+      if (list.length >= MAX_REPOS) throw userErr('You can add up to ' + MAX_REPOS + ' repositories. Remove one first.');
+      const id = hashStr(url);
+      const parsed = normalize(await fetchRepo(url), url, id);
+      if (!parsed.items.length) throw userErr('The file was read, but it has no playable videos. Every video needs a title and at least one quality with a link.');
+      const repo = { id, url, name: parsed.name, addedAt: Date.now() };
+      store.set(KEY, list.concat(repo));
+      R._apply(repo, parsed);
+      return { repo, count: parsed.items.length, skipped: parsed.skipped };
+    },
+
+    _apply(repo, parsed) {
+      RAW.data.Items.setSource('repo:' + repo.id, parsed.items);
+      state.set(repo.id, { status: 'ok', count: parsed.items.length, skipped: parsed.skipped, at: Date.now() });
+      try { const s = JSON.stringify({ at: Date.now(), name: parsed.name, items: parsed.items }); if (s.length < 1500000) store.set(CACHE + repo.id, JSON.parse(s)); } catch { /* cache is optional */ }
+      const list = R.list(); const r = list.find(x => x.id === repo.id);
+      if (r && r.name !== parsed.name) { r.name = parsed.name; store.set(KEY, list); }
+      bus.emit('repos:change');
+    },
+
+    /* Reload one repository. Keeps the last good copy if the update fails. */
+    async refresh(id) {
+      const repo = R.list().find(r => r.id === id); if (!repo) return;
+      const prev = state.get(id) || {}; state.set(id, Object.assign({}, prev, { status: 'loading' })); bus.emit('repos:change');
+      try {
+        const parsed = normalize(await fetchRepo(repo.url), repo.url, id);
+        if (!parsed.items.length) throw userErr('The file has no playable videos any more.');
+        R._apply(repo, parsed);
+      } catch (e) {
+        state.set(id, Object.assign({}, prev, { status: 'error', error: e.userMsg || 'Could not update this repository.' }));
+        bus.emit('repos:change');
+      }
+    },
+    refreshAll() { return Promise.all(R.list().map(r => R.refresh(r.id))); },
+
+    /* Remove a repository. Videos you downloaded from it stay playable on this phone. */
+    remove(id) {
+      const Items = RAW.data.Items, D = RAW.downloads;
+      const keepers = Items.catalog().filter(i => i.source === 'repo:' + id && D.done(i.id));
+      if (keepers.length) { const keep = store.get(KEEP, []).filter(k => !keepers.some(n => n.id === k.id)).concat(keepers.map(k => Object.assign({}, k, { downloadable: false })));
+        store.set(KEEP, keep); Items.setSource('repo:keep', keep); }
+      Items.setSource('repo:' + id, []);
+      store.set(KEY, R.list().filter(r => r.id !== id));
+      try { localStorage.removeItem('raw:' + CACHE + id); } catch { /* */ }
+      state.delete(id); bus.emit('repos:change');
+    },
+
+    /* Called once at startup: show cached videos at once, then update in the background. */
+    init() {
+      const Items = RAW.data.Items;
+      R.list().forEach(r => {
+        const c = store.get(CACHE + r.id, null);
+        if (c && Array.isArray(c.items)) { Items.setSource('repo:' + r.id, c.items); state.set(r.id, { status: 'ok', count: c.items.length, at: c.at }); }
+      });
+      const keep = store.get(KEEP, []); if (keep.length) Items.setSource('repo:keep', keep);
+      const go = () => { if (navigator.onLine !== false && R.list().length) R.refreshAll(); };
+      go(); addEventListener('online', go);
+    },
+  };
+
+  /* ---------- Settings card ---------- */
+  const host = u => { try { return new URL(u).hostname; } catch { return u; } };
+
+  function formatSheet() {
+    const pre = h('pre', { class: 'code' }, FORMAT_EXAMPLE);
+    RAW.sheet.open({ title: 'Repository format', body: [
+      h('p', { class: 'muted small', style: { margin: 0 } }, 'A repository is one JSON file that you or someone you trust publishes. Links inside it can be full links or paths next to the file.'),
+      h('ul', { class: 'muted small', style: { margin: '10px 0', paddingLeft: '18px', lineHeight: '1.6' } },
+        h('li', {}, 'Every video needs a title, a license, and at least one quality with a link.'),
+        h('li', {}, 'Downloads are allowed only when "downloadable" is true and a license is given.'),
+        h('li', {}, 'Qualities are the video height: 480, 720, 1080, 1440, 2160 or 4320.'),
+        h('li', {}, 'Use MP4 (H.264) or WebM files. The host must allow other websites to read them (CORS).')),
+      pre,
+      h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', onclick: async () => {
+        try { await navigator.clipboard.writeText(FORMAT_EXAMPLE); RAW.toast('Example copied'); }
+        catch { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); RAW.toast('Select and copy the text'); }
+      } }, 'Copy example'))] });
+  }
+
+  function addSheet() {
+    const inp = h('input', { class: 'textin', id: 'repo-url', type: 'url', inputmode: 'url', placeholder: 'https://example.com/repo.json', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false' });
+    const msg = h('p', { class: 'small', style: { margin: '8px 0 0', minHeight: '1.2em', color: 'var(--bad)' }, role: 'alert' });
+    const go = h('button', { class: 'btn primary' }, 'Add');
+    const s = RAW.sheet.open({ title: 'Add repository' });
+    const submit = async () => {
+      msg.textContent = ''; go.disabled = true; go.textContent = 'Checking…';
+      try {
+        const r = await R.add(inp.value);
+        s.close(); RAW.toast(`Added "${r.repo.name}" · ${r.count} video${r.count === 1 ? '' : 's'}`);
+      } catch (e) { msg.textContent = e.userMsg || 'Could not add this repository.'; go.disabled = false; go.textContent = 'Add'; }
+    };
+    go.addEventListener('click', submit); inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    s.set([h('div', { class: 'formrow' }, h('label', { for: 'repo-url' }, 'Repository link'), inp), msg,
+      h('p', { class: 'faint small', style: { margin: '10px 0 0' } }, 'Only add repositories whose videos you own or have permission to watch. RAW Stream does not provide videos.'),
+      h('div', { class: 'btnrow' }, h('button', { class: 'btn', onclick: () => s.close() }, 'Cancel'), go)]);
+    setTimeout(() => inp.focus(), 60);
+  }
+
+  R.card = function (repaint) {
+    const row = (label, desc, right) => h('div', { class: 'set-row' }, h('div', { class: 'lab' }, h('b', {}, label), desc ? h('span', {}, desc) : null), right);
+    const list = R.list();
+    const rows = list.map(r => {
+      const st = R.state(r.id);
+      const status = st.status === 'loading' ? 'Updating…' : st.status === 'error' ? st.error : (st.count + ' video' + (st.count === 1 ? '' : 's') + (st.at ? ' · updated ' + fmtAgo(st.at) : '') + (st.skipped ? ' · ' + st.skipped + ' skipped' : ''));
+      return h('div', { class: 'set-row' },
+        h('div', { class: 'lab' }, h('b', {}, r.name), h('span', { style: st.status === 'error' ? { color: 'var(--bad)' } : null }, host(r.url) + ' · ' + status)),
+        h('div', { style: { display: 'flex', gap: '2px' } },
+          h('button', { class: 'iconbtn plain', 'aria-label': 'Update ' + r.name, disabled: st.status === 'loading', onclick: () => R.refresh(r.id) }, icon('retry', 18)),
+          h('button', { class: 'iconbtn plain', 'aria-label': 'Remove ' + r.name, onclick: () => RAW.sheet.confirm({ title: 'Remove repository?', text: '"' + r.name + '" and its videos will be removed from RAW Stream. Videos you downloaded stay on this phone.', ok: 'Remove', danger: true, onOk: () => { R.remove(r.id); repaint(); } }) }, icon('trash', 18))));
+    });
+    const off = bus.on('repos:change', () => { if (card.isConnected) repaint(); else off(); });
+    const card = h('div', { class: 'set-card' },
+      row('Repositories', list.length ? list.length + ' added' : 'Add a link to a list of videos you have the right to watch', h('button', { class: 'btn sm primary', onclick: addSheet }, icon('plus', 16), 'Add')),
+      ...rows,
+      row('Format', 'How to write your own repository file', h('button', { class: 'btn sm', onclick: formatSheet }, 'View')));
+    return card;
+  };
+})();
+
+/* ===== MODULE: downloads =====
+   In-app download manager. Files are saved to private app storage (IndexedDB) so they
+   play offline. Supports queue, pause/resume (HTTP Range), cancel, retry, speed, history.
+   Only items flagged `downloadable` can be downloaded.
+*/
+(function () {
+  const { h, icon, fmtBytes, qLabel, fmtAgo } = RAW.util;
+  const { db, bus, store, settings } = RAW;
+  const { Items } = RAW.data;
+
+  const recs = new Map();      // key -> record
+  const live = new Map();      // key -> { ctrl, tick }
+  const CHUNK = 512 * 1024;
+  const keyOf = (itemId, q) => itemId + '|' + q;
+
+  const D = {
+    list() { return [...recs.values()]; },
+    get(key) { return recs.get(key); },
+    forItem(itemId) { return D.list().filter(r => r.itemId === itemId); },
+    done(itemId) { return D.forItem(itemId).filter(r => r.status === 'completed').sort((a, b) => b.q - a.q)[0] || null; },
+    activeCount() { return D.list().filter(r => ['queued', 'downloading', 'paused'].includes(r.status)).length; },
+    log() { return store.get('dllog', []); },
+    addLog(r, status) { const l = D.log(); l.unshift({ title: r.title, q: r.q, size: r.size, status, t: Date.now() }); store.set('dllog', l.slice(0, 60)); },
+
+    async init() {
+      try {
+        const rows = await db.all('dl');
+        rows.forEach(({ v }) => {
+          if (v.status === 'downloading' || v.status === 'queued') { v.status = 'paused'; v.note = 'Interrupted. Tap resume to continue.'; }
+          v.speed = 0; recs.set(v.key, v);
+        });
+      } catch (e) { console.warn('downloads init failed', e); }
+      const c = navigator.connection; if (c && c.addEventListener) c.addEventListener('change', () => pump());
+      window.addEventListener('online', () => pump());
+    },
+    save(r) { return db.put('dl', r.key, r).catch(e => console.warn('dl save', e)); },
+    emit() { bus.emit('dl:change'); },
+
+    /* begin or queue a download */
+    start(item, q) {
+      if (!item.downloadable) { RAW.toast('This source does not allow downloads.'); return null; }
+      const url = item.qualities[q] && item.qualities[q].url; if (!url) { RAW.toast('That quality is not available.'); return null; }
+      const key = keyOf(item.id, q);
+      const ex = recs.get(key);
+      if (ex && ex.status === 'completed') { RAW.toast('Already downloaded.'); return ex; }
+      if (ex && ['queued', 'downloading', 'paused'].includes(ex.status)) { RAW.toast('Already in your downloads.'); return ex; }
+      const r = { key, itemId: item.id, title: item.title, q: Number(q), url, size: item.qualities[q].size || 0, loaded: 0, chunks: 0, status: 'queued', speed: 0, created: Date.now(), error: '' };
+      recs.set(key, r); D.save(r); D.emit(); pump();
+      RAW.toast(`Download added · ${qLabel(r.q)}`);
+      return r;
+    },
+    pause(key) { const r = recs.get(key); if (!r || r.status !== 'downloading') { if (r && r.status === 'queued') { r.status = 'paused'; D.save(r); D.emit(); } return; } r.status = 'paused'; r.speed = 0; stop(key); D.save(r); D.emit(); pump(); },
+    resume(key) { const r = recs.get(key); if (!r || !['paused', 'failed'].includes(r.status)) return; r.status = 'queued'; r.error = ''; r.note = ''; D.save(r); D.emit(); pump(); },
+    retry(key) { D.resume(key); },
+    async cancel(key) {
+      const r = recs.get(key); if (!r) return;
+      stop(key); recs.delete(key); D.addLog(r, 'canceled');
+      await db.delPrefix('chunks', key + '#'); await db.del('dl', key); D.emit(); pump();
+    },
+    async remove(key) {
+      const r = recs.get(key); if (!r) return;
+      stop(key); recs.delete(key);
+      await db.del('blobs', key); await db.delPrefix('chunks', key + '#'); await db.del('dl', key); D.emit();
+    },
+    async removeAll() { for (const r of D.list()) await D.remove(r.key); },
+    async blobFor(key) { return db.get('blobs', key); },
+    totalBytes() { return D.list().filter(r => r.status === 'completed').reduce((a, r) => a + (r.size || 0), 0); },
+  };
+
+  function stop(key) { const l = live.get(key); if (l) { try { l.ctrl.abort(); } catch { /* */ } clearInterval(l.tick); live.delete(key); } }
+
+  function wifiBlocked() {
+    if (!settings.get('wifiOnly')) return false;
+    const c = navigator.connection; return !!(c && c.type === 'cellular');
+  }
+  function pump() {
+    const max = Number(settings.get('maxDl')) || 2;
+    let running = D.list().filter(r => r.status === 'downloading').length;
+    for (const r of D.list()) {
+      if (r.status !== 'queued') continue;
+      if (wifiBlocked()) { if (r.note !== 'Waiting for Wi-Fi') { r.note = 'Waiting for Wi-Fi'; D.emit(); } continue; }
+      if (r.note === 'Waiting for Wi-Fi') r.note = '';
+      if (running >= max) break;
+      running++; run(r);
+    }
+  }
+  bus.on('setting:wifiOnly', pump); bus.on('setting:maxDl', pump);
+
+  async function run(r) {
+    const ctrl = new AbortController();
+    let last = r.loaded, lastT = performance.now(), sm = 0;
+    r.status = 'downloading'; r.error = ''; r.note = ''; D.emit();
+    const tick = setInterval(() => {
+      const now = performance.now(), cur = r.loaded + (r.live || 0), inst = (cur - last) / ((now - lastT) / 1000);
+      sm = sm ? sm * 0.6 + inst * 0.4 : inst; r.speed = Math.max(0, sm); last = cur; lastT = now; D.emit();
+    }, 700);
+    live.set(r.key, { ctrl, tick });
+    try {
+      if (!navigator.onLine) throw fail('offline', 'No internet connection.');
+      if (navigator.storage && navigator.storage.estimate) {
+        const est = await navigator.storage.estimate();
+        if (est.quota && est.usage != null && est.quota - est.usage < (r.size - r.loaded) * 1.1) throw fail('storage', 'Not enough free storage for this download.');
+      }
+      const res = await fetch(r.url, { headers: r.loaded ? { Range: 'bytes=' + r.loaded + '-' } : {}, signal: ctrl.signal });
+      if (!res.ok && res.status !== 206) throw fail('http', 'The server answered ' + res.status + '.');
+      if (!res.body || !res.body.getReader) throw fail('http', 'Streaming downloads are not supported in this browser.');
+      let skip = (r.loaded && res.status === 200) ? r.loaded : 0;   // server ignored Range: skip what we already have
+      // The server's Content-Length is the real size; the size we showed before starting is only an estimate.
+      const cl = Number(res.headers.get('content-length')) || 0;
+      const expected = (cl && !res.headers.get('content-encoding')) ? (res.status === 206 ? r.loaded + cl : cl) : 0;
+      if (expected) r.size = expected;
+      const reader = res.body.getReader(); let buf = [], bufLen = 0;
+      const flush = async () => {
+        if (!bufLen) return;
+        const blob = new Blob(buf); buf = []; bufLen = 0;
+        try { await db.put('chunks', r.key + '#' + r.chunks, blob); } catch (e) { throw (e && e.name === 'QuotaExceededError') ? fail('storage', 'Not enough free storage for this download.') : e; }
+        r.chunks++; r.loaded += blob.size; r.live = 0; D.save(r);
+      };
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        let v = value;
+        if (skip) { if (v.length <= skip) { skip -= v.length; continue; } v = v.subarray(skip); skip = 0; }
+        buf.push(v); bufLen += v.length;
+        r.live = bufLen;   // in-flight bytes, shown in progress until the chunk is flushed
+        if (bufLen >= CHUNK) await flush();
+      }
+      await flush(); r.live = 0;
+      if (expected && r.loaded < expected) throw fail('http', 'The download ended early. Retry to continue.');
+      // assemble final file
+      const parts = [];
+      for (let i = 0; i < r.chunks; i++) parts.push(await db.get('chunks', r.key + '#' + i));
+      await db.put('blobs', r.key, new Blob(parts, { type: /\.webm(\?|#|$)/i.test(r.url) ? 'video/webm' : 'video/mp4' }));
+      await db.delPrefix('chunks', r.key + '#');
+      r.status = 'completed'; r.finished = Date.now(); r.size = r.loaded || r.size; r.speed = 0;
+      D.addLog(r, 'completed'); RAW.toast(`Downloaded · ${r.title}`);
+    } catch (e) {
+      if (ctrl.signal.aborted) { /* paused or canceled by user */ }
+      else {
+        r.status = 'failed'; r.speed = 0; r.error = e && e.userMsg ? e.userMsg : (e && e.name === 'TypeError' ? 'Network problem. Check your connection and retry.' : 'Download failed. Please retry.');
+        D.addLog(r, 'failed'); console.warn('download failed', e);
+      }
+    } finally {
+      stop(r.key); r.live = 0;
+      if (recs.has(r.key)) D.save(r);
+      D.emit(); pump();
+    }
+  }
+  function fail(code, userMsg) { const e = new Error(code); e.userMsg = userMsg; return e; }
+
+  /* quality picker shown before every download */
+  D.pick = async function (item) {
+    if (!item.downloadable) { RAW.toast('This source does not allow downloads.'); return; }
+    const qs = Items.qualities(item);
+    let free = '';
+    try { const e = await navigator.storage.estimate(); if (e.quota) free = fmtBytes(e.quota - e.usage) + ' free'; } catch { /* */ }
+    const pref = settings.get('dlQuality');
+    let sel = pref === 'highest' ? qs[0] : (qs.includes(Number(pref)) ? Number(pref) : qs.slice().sort((a, b) => Math.abs(a - pref) - Math.abs(b - pref))[0]);
+    const s = RAW.sheet.open({ title: 'Download' });
+    const body = h('div', { class: 'qgrid' });
+    const go = h('button', { class: 'btn primary' }, icon('download', 20), 'Download');
+    function paint() {
+      body.replaceChildren(...qs.map(q => {
+        const ex = recs.get(keyOf(item.id, q));
+        const state = ex ? (ex.status === 'completed' ? 'Downloaded' : 'In downloads') : '';
+        return h('button', { class: 'qrow' + (q === sel ? ' on' : ''), onclick: () => { sel = q; paint(); } },
+          h('b', {}, qLabel(q)), h('span', { class: 'muted small' }, state || (q >= 1080 ? 'Best detail' : q >= 720 ? 'Balanced' : 'Saves data')),
+          h('span', { class: 'sz' }, '≈ ' + fmtBytes(RAW.data.sizeOf(item, q))), q === sel ? h('span', { class: 'ck' }, icon('check', 20)) : null);
+      }));
+    }
+    paint();
+    go.addEventListener('click', () => { s.close(); D.start(item, sel); });
+    s.set([h('div', {}, h('b', {}, item.title), h('div', { class: 'faint small' }, 'Choose a quality. Only qualities this source provides are listed.')), body,
+      h('div', { class: 'faint small', style: { display: 'flex', gap: '8px', alignItems: 'center' } }, icon('folder', 16), 'Saved to: RAW Stream app storage on this device' + (free ? ' · ' + free : '')), go]);
+  };
+
+  D.statusText = function (r) {
+    if (r.status === 'downloading') return fmtBytes(r.speed) + '/s';
+    if (r.status === 'queued') return r.note || 'Waiting in queue';
+    if (r.status === 'paused') return r.note || 'Paused';
+    if (r.status === 'failed') return r.error || 'Failed';
+    if (r.status === 'completed') return 'Saved ' + fmtAgo(r.finished || r.created);
+    return '';
+  };
+  void fmtAgo;
+
+  RAW.downloads = D;
+})();
+
+/* ===== MODULE: player =====
+   Full-screen player. RAW.player.open(ids, index) plays one item or a queue (playlist).
+   Handles: gestures, seek, speed, quality (auto + manual with fallback), subtitles, audio tracks,
+   PiP, fullscreen, orientation, resume position, and every failure path (offline, stream error,
+   unsupported format, missing file) without crashing.
+*/
+(function () {
+  const { h, icon, fmtTime, qLabel, fmtBytes, clamp } = RAW.util;
+  const { Items, History } = RAW.data;
+  const { settings, toast, bus } = RAW;
+
+  let root, video, els = {};
+  const S = { ids: [], idx: 0, item: null, quality: 'auto', curQ: null, curLabel: '', speed: 1, blobUrl: null, open: false, loadId: 0, extraSubs: [], subIdx: -1, lastPos: 0, offlineCopy: false };
+  let uiTimer, rafId, slowT, hudT, saveAt = 0, bright = 1, lastTap = null, dragging = false, menuPage = null, wake = null;
+
+  const ue = (msg, code) => { const e = new Error(code || msg); e.userMsg = msg; e.code2 = code; return e; };
+
+  /* ---------- DOM ---------- */
+  function build() {
+    video = h('video', { playsinline: '', preload: 'metadata', 'webkit-playsinline': '' });
+    els.title = h('b', {}); els.sub = h('span', {});
+    els.cur = h('span', {}, '0:00'); els.dur = h('span', {}, '--:--');
+    els.buf = h('div', { class: 'buf' }); els.fill = h('div', { class: 'fill' }); els.knob = h('div', { class: 'knob' }); els.tip = h('div', { class: 'tip' }, '0:00');
+    els.trk = h('div', { class: 'trk' }, els.buf, els.fill);
+    els.seek = h('div', { class: 'pl-seek', role: 'slider', 'aria-label': 'Seek', tabindex: '0' }, els.trk, els.knob, els.tip);
+    els.playBtn = h('button', { class: 'pl-btn pl-play', 'aria-label': 'Play or pause', onclick: toggle }, icon('play', 34));
+    els.prev = h('button', { class: 'pl-btn', 'aria-label': 'Previous', onclick: () => go(-1) }, icon('prev', 26));
+    els.next = h('button', { class: 'pl-btn', 'aria-label': 'Next', onclick: () => go(1) }, icon('next', 26));
+    els.mute = h('button', { class: 'pl-btn', 'aria-label': 'Mute', onclick: () => { video.muted = !video.muted; paintVol(); } }, icon('vol', 22));
+    els.vol = h('input', { type: 'range', min: '0', max: '1', step: '0.02', value: '1', 'aria-label': 'Volume', id: 'pl-vol', oninput: e => { video.volume = +e.target.value; video.muted = video.volume === 0; paintVol(); } });
+    els.speedBtn = h('button', { class: 'pl-pill', onclick: () => openMenu('speed') }, '1×');
+    els.qBtn = h('button', { class: 'pl-pill', onclick: () => openMenu('quality') }, 'Auto');
+    els.pip = h('button', { class: 'pl-btn', 'aria-label': 'Picture in picture', onclick: togglePip }, icon('pip', 22));
+    els.rot = h('button', { class: 'pl-btn', 'aria-label': 'Rotate screen', onclick: rotate }, icon('rotate', 22));
+    els.fs = h('button', { class: 'pl-btn', 'aria-label': 'Fullscreen', onclick: toggleFs }, icon('fs', 22));
+    els.hud = h('div', { class: 'pl-hud', hidden: true });
+    els.spin = h('div', { class: 'pl-spin', hidden: true });
+    els.err = h('div', { class: 'pl-error', hidden: true });
+    els.menu = h('div', { class: 'pl-menu', hidden: true });
+    els.rl = h('div', { class: 'pl-ripple l' }); els.rr = h('div', { class: 'pl-ripple r' });
+    els.gesture = h('div', { class: 'pl-gesture' });
+    const ui = h('div', { class: 'pl-ui' },
+      h('div', { class: 'pl-top' },
+        h('button', { class: 'pl-btn', 'aria-label': 'Close player', onclick: close }, icon('chevL', 26)),
+        h('div', { class: 'tt' }, els.title, els.sub),
+        els.pip, h('button', { class: 'pl-btn', 'aria-label': 'Player settings', onclick: () => openMenu('root') }, icon('sliders', 22))),
+      h('div', { class: 'pl-center' }, els.prev,
+        h('button', { class: 'pl-btn', 'aria-label': 'Back 10 seconds', onclick: () => skip(-10) }, icon('back10', 32)),
+        els.playBtn,
+        h('button', { class: 'pl-btn', 'aria-label': 'Forward 10 seconds', onclick: () => skip(10) }, icon('fwd10', 32)), els.next),
+      h('div', { class: 'pl-bottom' },
+        h('div', { class: 'pl-seekrow' }, els.cur, els.seek, els.dur),
+        h('div', { class: 'pl-tools' }, h('div', { class: 'vol' }, els.mute, els.vol), h('span', { class: 'grow' }), els.speedBtn, els.qBtn, els.rot, els.fs)));
+    root = h('div', { class: 'player', hidden: true, role: 'dialog', 'aria-label': 'Video player' }, video, els.gesture, els.rl, els.rr, els.hud, els.spin, ui, els.err, els.menu);
+    document.body.appendChild(root);
+    els.pip.hidden = !(document.pictureInPictureEnabled);
+    wire();
+  }
+
+  function wire() {
+    /* media events */
+    video.addEventListener('play', () => { paintPlay(); showUI(); wakeOn(); });
+    video.addEventListener('pause', () => { paintPlay(); showUI(); saveNow(); wakeOff(); });
+    video.addEventListener('playing', () => { setSpin(false); clearTimeout(slowT); });
+    video.addEventListener('canplay', () => { setSpin(false); clearTimeout(slowT); });
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('timeupdate', onTime);
+    video.addEventListener('progress', update);
+    video.addEventListener('loadedmetadata', () => { update(); if (S.item && S.item.kind === 'local' && !S.item.duration) { S.item.duration = video.duration; S.item.height = video.videoHeight; RAW.data.Local.persist(S.item); } });
+    video.addEventListener('ended', onEnded);
+    video.addEventListener('error', onError);
+    video.addEventListener('volumechange', paintVol);
+    document.addEventListener('fullscreenchange', () => { els.fs.replaceChildren(icon(document.fullscreenElement ? 'exitfs' : 'fs', 22)); });
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S.open && !video.paused) wakeOn(); });
+    document.addEventListener('keydown', onKey);
+
+    /* seek bar */
+    const pAt = e => { const r = els.trk.getBoundingClientRect(); return clamp((e.clientX - r.left) / r.width, 0, 1); };
+    els.seek.addEventListener('pointerdown', e => {
+      if (!isFinite(video.duration)) return;
+      dragging = true; els.seek.classList.add('drag'); try { els.seek.setPointerCapture(e.pointerId); } catch { /* */ }
+      clearTimeout(uiTimer); preview(pAt(e)); e.stopPropagation();
+    });
+    els.seek.addEventListener('pointermove', e => { if (dragging) preview(pAt(e)); });
+    const endDrag = e => { if (!dragging) return; dragging = false; els.seek.classList.remove('drag'); const p = pAt(e); try { video.currentTime = p * video.duration; } catch { /* */ } update(); showUI(); };
+    els.seek.addEventListener('pointerup', endDrag);
+    els.seek.addEventListener('pointercancel', () => { dragging = false; els.seek.classList.remove('drag'); });
+    els.seek.addEventListener('keydown', e => { if (e.key === 'ArrowLeft') skip(-5); if (e.key === 'ArrowRight') skip(5); });
+
+    /* touch gestures: tap = controls, double tap = ±10s / pause, drag left = brightness, drag right = volume */
+    let g = null;
+    els.gesture.addEventListener('pointerdown', e => {
+      const r = root.getBoundingClientRect();
+      g = { x: e.clientX, y: e.clientY, t: Date.now(), w: r.width, h: r.height, mode: null, b0: bright, v0: video.volume, moved: false };
+      try { els.gesture.setPointerCapture(e.pointerId); } catch { /* */ }
+    });
+    els.gesture.addEventListener('pointermove', e => {
+      if (!g) return;
+      const dx = e.clientX - g.x, dy = e.clientY - g.y;
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) g.moved = true;
+      if (!g.mode && Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx) * 1.3) g.mode = g.x < g.w * 0.4 ? 'bright' : g.x > g.w * 0.6 ? 'vol' : 'none';
+      if (g.mode === 'bright') { bright = clamp(g.b0 - dy / (g.h * 0.7), 0.3, 1.6); video.style.filter = Math.abs(bright - 1) < 0.02 ? '' : 'brightness(' + bright.toFixed(2) + ')'; hud('sun', (bright - 0.3) / 1.3, Math.round(bright * 100) + '%'); }
+      if (g.mode === 'vol') { video.muted = false; video.volume = clamp(g.v0 - dy / (g.h * 0.7), 0, 1); hud(video.volume === 0 ? 'mute' : 'vol', video.volume, Math.round(video.volume * 100) + '%'); }
+    });
+    els.gesture.addEventListener('pointerup', e => {
+      if (!g) return; const k = g; g = null;
+      if (k.mode || k.moved || Date.now() - k.t > 500) return;
+      const now = Date.now();
+      if (lastTap && now - lastTap.t < 300) {
+        clearTimeout(lastTap.timer); lastTap = null;
+        const rel = k.x / k.w;
+        if (rel < 0.4) { skip(-10); ripple('l', '−10s'); } else if (rel > 0.6) { skip(10); ripple('r', '+10s'); } else toggle();
+      } else {
+        lastTap = { t: now, timer: setTimeout(() => { lastTap = null; toggleUI(); }, 280) };
+      }
+    });
+    els.gesture.addEventListener('pointercancel', () => { g = null; });
+  }
+
+  /* ---------- small UI helpers ---------- */
+  function paintPlay() { els.playBtn.replaceChildren(icon(video.paused ? 'play' : 'pause', 34)); }
+  function paintVol() { els.mute.replaceChildren(icon(video.muted || video.volume === 0 ? 'mute' : 'vol', 22)); els.vol.value = video.muted ? 0 : video.volume; }
+  function setSpin(on) { els.spin.hidden = !on; }
+  function hud(ic, v, label) {
+    els.hud.replaceChildren(icon(ic, 22), h('div', { class: 'bar' }, h('i', { style: { width: Math.round(clamp(v, 0, 1) * 100) + '%' } })), h('span', {}, label));
+    els.hud.hidden = false; clearTimeout(hudT); hudT = setTimeout(() => { els.hud.hidden = true; }, 800);
+  }
+  function ripple(side, text) { const r = side === 'l' ? els.rl : els.rr; r.textContent = text; r.classList.remove('go'); void r.offsetWidth; r.classList.add('go'); }
+  function showUI() {
+    root.classList.remove('ui-hidden'); clearTimeout(uiTimer);
+    if (!video.paused && !menuPage && !dragging) uiTimer = setTimeout(() => { if (!video.paused && !menuPage) root.classList.add('ui-hidden'); }, 3500);
+  }
+  function toggleUI() { if (root.classList.contains('ui-hidden')) showUI(); else { clearTimeout(uiTimer); root.classList.add('ui-hidden'); } }
+  function preview(p) {
+    const d = video.duration || 0;
+    els.fill.style.width = (p * 100) + '%'; els.knob.style.left = (p * 100) + '%';
+    els.tip.textContent = fmtTime(p * d); els.tip.style.left = (p * 100) + '%'; els.cur.textContent = fmtTime(p * d);
+  }
+  function update() {
+    if (!video) return;
+    const d = video.duration, t = video.currentTime, ok = isFinite(d) && d > 0;
+    if (!dragging) {
+      els.cur.textContent = fmtTime(t); els.dur.textContent = ok ? fmtTime(d) : '--:--';
+      const p = ok ? t / d : 0; els.fill.style.width = (p * 100) + '%'; els.knob.style.left = (p * 100) + '%';
+      els.seek.setAttribute('aria-valuenow', Math.round(p * 100));
+    }
+    if (ok && video.buffered.length) els.buf.style.width = (video.buffered.end(video.buffered.length - 1) / d * 100) + '%';
+  }
+  function loop() { if (!S.open) return; if (!video.paused && !root.classList.contains('ui-hidden')) update(); rafId = requestAnimationFrame(loop); }
+  function paintInfo() {
+    const it = S.item; if (!it) return;
+    els.title.textContent = it.title;
+    const q = S.quality === 'auto' && S.item.kind === 'catalog' ? 'Auto · ' + (S.curLabel || '') : (S.curLabel || '');
+    els.sub.textContent = [Items.typeLabel(it), S.ids.length > 1 ? (S.idx + 1) + ' of ' + S.ids.length : ''].filter(Boolean).join(' · ');
+    els.qBtn.textContent = q.trim() || 'Auto';
+    els.speedBtn.textContent = (S.speed === 1 ? '1' : S.speed) + '×';
+    els.prev.hidden = els.next.hidden = S.ids.length < 2;
+  }
+
+  /* ---------- playback control ---------- */
+  function toggle() { if (video.paused) { if (video.ended) video.currentTime = 0; video.play().catch(onPlayBlocked); } else video.pause(); }
+  function onPlayBlocked(e) { setSpin(false); paintPlay(); root.classList.remove('ui-hidden'); if (e && e.name !== 'AbortError') console.warn('play blocked', e); }
+  function skip(sec) { if (!isFinite(video.duration)) return; video.currentTime = clamp(video.currentTime + sec, 0, video.duration); update(); showUI(); }
+  function go(d) {
+    const i = S.idx + d; if (i < 0 || i >= S.ids.length) return;
+    saveNow(); S.idx = i; startItem();
+  }
+  function onTime() {
+    update(); S.lastPos = video.currentTime;
+    if (Date.now() - saveAt > 2500) { saveAt = Date.now(); saveNow(); }
+  }
+  function saveNow() {
+    if (!S.item || !settings.get('remember')) return;
+    if (!isFinite(video.duration) || video.currentTime < 1) { if (!History.get(S.item.id) && video.currentTime >= 1) History.touch(S.item.id, video.currentTime, video.duration); return; }
+    History.touch(S.item.id, video.currentTime, video.duration);
+  }
+  function onEnded() {
+    History.touch(S.item.id, 0, video.duration, true); paintPlay(); showUI();
+    if (settings.get('autoNext') && S.idx < S.ids.length - 1) go(1);
+  }
+  function onWaiting() {
+    setSpin(true); clearTimeout(slowT);
+    slowT = setTimeout(() => {
+      if (video.readyState < 3 && S.item && S.item.kind === 'catalog' && lowerQ())
+        toast('Slow connection. Try a lower quality?', { ms: 6000, action: { label: 'Lower', fn: () => fallbackDown(true) } });
+    }, 8000);
+  }
+
+  /* ---------- sources + quality ---------- */
+  function lowerQ() { const qs = Items.qualities(S.item); return qs.filter(q => q < (S.curQ || 99999)).sort((a, b) => b - a)[0] || null; }
+  function fallbackDown(manual) {
+    const q = lowerQ(); if (!q) return false;
+    S.quality = q; toast('Switched to ' + qLabel(q)); load(video.currentTime || S.lastPos, !video.paused || !manual); return true;
+  }
+  function revoke() {
+    if (S.blobUrl) { try { URL.revokeObjectURL(S.blobUrl); } catch { /* */ } S.blobUrl = null; }
+    (S.subBlobs || []).forEach(u => { try { URL.revokeObjectURL(u); } catch { /* */ } }); S.subBlobs = [];
+  }
+  async function resolve(it) {
+    if (it.kind === 'local') {
+      if (!it.file) throw ue('This file is not available right now. Open My Videos and pick it again.', 'missing');
+      return { url: URL.createObjectURL(it.file), q: it.height, label: it.height ? qLabel(it.height) : 'Original', blob: true };
+    }
+    const dl = RAW.downloads.done(it.id);
+    S.offlineCopy = !!dl;
+    if (dl && (S.quality === 'offline' || S.quality === 'auto')) {
+      const b = await RAW.downloads.blobFor(dl.key);
+      if (b) return { url: URL.createObjectURL(b), q: dl.q, label: qLabel(dl.q) + ' · offline', blob: true };
+    }
+    if (!navigator.onLine) throw ue('No internet connection. Download this video to watch it offline.', 'offline');
+    const qs = Items.qualities(it);
+    let q;
+    if (S.quality === 'auto' || S.quality === 'offline') q = await RAW.data.pickAuto(it);
+    else q = it.qualities[S.quality] ? Number(S.quality) : qs[qs.length - 1];
+    if (!q) throw ue('This video has no playable source.', 'nosrc');
+    return { url: it.qualities[q].url, q, label: qLabel(q) };
+  }
+  async function load(startAt = 0, play = true) {
+    const it = S.item, id = ++S.loadId;
+    hideError(); setSpin(true); clearTimeout(slowT);
+    let src;
+    try { src = await resolve(it); } catch (e) { if (id !== S.loadId) return; setSpin(false); return showError(e.userMsg || 'This video could not be opened.', e.code2 === 'offline' || e.code2 === 'missing' ? e.code2 : 'retry'); }
+    if (id !== S.loadId) { if (src.blob) URL.revokeObjectURL(src.url); return; }
+    revoke(); if (src.blob) S.blobUrl = src.url;
+    S.curQ = src.q; S.curLabel = src.label;
+    /* Subtitles on this page (data:/blob:) load directly. Subtitles from another site are fetched in the
+       background and attached as a local blob, so they do not need the video element to use CORS. */
+    const allSubs = [...(it.subs || []), ...S.extraSubs];
+    const mkTrack = (s, u) => h('track', { kind: 'subtitles', srclang: s.lang || 'en', label: s.label, src: u });
+    video.replaceChildren(...allSubs.filter(s => !/^https?:/i.test(s.url)).map(s => mkTrack(s, s.url)));
+    allSubs.filter(s => /^https?:/i.test(s.url)).forEach(async s => {
+      try {
+        const r = await fetch(s.url); if (!r.ok) return;
+        const u = URL.createObjectURL(new Blob([await r.text()], { type: 'text/vtt' }));
+        if (id !== S.loadId) { URL.revokeObjectURL(u); return; }
+        (S.subBlobs = S.subBlobs || []).push(u); video.appendChild(mkTrack(s, u)); applySubs();
+      } catch { /* subtitles are optional */ }
+    });
+    video.src = src.url; video.playbackRate = S.speed; video.load();
+    const meta = () => { video.removeEventListener('loadedmetadata', meta); if (startAt > 0 && isFinite(video.duration)) { try { video.currentTime = Math.min(startAt, Math.max(0, video.duration - 0.5)); } catch { /* */ } } applySubs(); update(); };
+    video.addEventListener('loadedmetadata', meta);
+    paintInfo();
+    if (play) { const pr = video.play(); if (pr && pr.catch) pr.catch(onPlayBlocked); }
+    mediaSession();
+  }
+
+  /* ---------- errors ---------- */
+  function onError() {
+    const e = video.error; if (!e || !S.item || !video.getAttribute('src')) return;
+    if (e.code === 1) return;
+    setSpin(false);
+    const it = S.item;
+    if (it.kind === 'catalog' && (e.code === 3 || e.code === 4) && fallbackDown(false)) return;
+    if (e.code === 2) return showError(navigator.onLine ? 'The stream stopped. Check your connection and try again.' : 'No internet connection. Download this video to watch it offline.', navigator.onLine ? 'retry' : 'offline');
+    if (e.code === 4 || e.code === 3) return showError(it.kind === 'local'
+      ? 'This format is not supported on this device (' + (it.name || '').split('.').pop().toUpperCase() + '). MP4 (H.264) and WebM play almost everywhere.'
+      : 'This device cannot decode this video.', 'skip');
+    showError('Something went wrong while playing this video.', 'retry');
+  }
+  function hideError() { els.err.hidden = true; }
+  function showError(msg, kind) {
+    video.pause(); paintPlay();
+    const btns = [];
+    if (kind === 'retry' || kind === 'offline') btns.push(h('button', { class: 'btn primary', onclick: () => load(S.lastPos || 0) }, icon('retry', 18), 'Try again'));
+    if (kind === 'missing') btns.push(h('button', { class: 'btn primary', onclick: () => { close(); RAW.router && RAW.router.show('local'); } }, icon('folder', 18), 'Open My Videos'));
+    if (S.ids.length > 1 && S.idx < S.ids.length - 1) btns.push(h('button', { class: 'btn', onclick: () => go(1) }, 'Play next'));
+    btns.push(h('button', { class: 'btn', onclick: close }, 'Close'));
+    els.err.replaceChildren(icon('info', 40), h('h3', {}, 'Cannot play this video'), h('p', {}, msg), h('div', { class: 'btnrow' }, btns));
+    els.err.hidden = false; root.classList.remove('ui-hidden');
+  }
+
+  /* ---------- subtitles + audio ---------- */
+  function applySubs() {
+    const tt = [...video.textTracks]; if (!tt.length) { S.subIdx = -1; return; }
+    if (!S.subTouched) {   // until the viewer picks a track, follow the Subtitle preference setting
+      const pref = settings.get('subPref');
+      S.subIdx = pref === 'off' ? -1 : tt.findIndex(t => t.language === pref);
+    }
+    tt.forEach((t, i) => { t.mode = i === S.subIdx ? 'showing' : 'disabled'; });
+  }
+  function srtToVtt(text) { return 'WEBVTT\n\n' + text.replace(/\r/g, '').replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g, '$1.$2'); }
+  function addSubFile() {
+    const inp = h('input', { type: 'file', accept: '.vtt,.srt,text/vtt', style: { display: 'none' } });
+    inp.addEventListener('change', async () => {
+      const f = inp.files && inp.files[0]; if (!f) return;
+      try {
+        let t = await f.text(); if (!/^WEBVTT/.test(t.trim())) t = srtToVtt(t);
+        const url = URL.createObjectURL(new Blob([t], { type: 'text/vtt' }));
+        S.extraSubs.push({ lang: 'und', label: f.name.replace(/\.[^.]+$/, ''), url });
+        S.subTouched = true; S.subIdx = (S.item.subs || []).length + S.extraSubs.length - 1;
+        const pos = video.currentTime, playing = !video.paused; await load(pos, playing); toast('Subtitles added');
+      } catch { toast('That subtitle file could not be read.'); }
+    });
+    document.body.appendChild(inp); inp.click(); setTimeout(() => inp.remove(), 60000);
+  }
+
+  /* ---------- menus ---------- */
+  function openMenu(page) { menuPage = page; renderMenu(); els.menu.hidden = false; clearTimeout(uiTimer); root.classList.remove('ui-hidden'); }
+  function closeMenu() { menuPage = null; els.menu.hidden = true; showUI(); }
+  function renderMenu() {
+    const it = S.item, box = h('div', { class: 'box' });
+    const opt = (label, { value, on, ic, run, disabled, small } = {}) => h('button', { class: 'opt', disabled: !!disabled, onclick: () => run && run() }, ic ? icon(ic, 22) : null, h('span', {}, label), small ? h('small', {}, small) : null, value ? h('small', {}, value) : null, on ? h('span', { class: 'ck' }, icon('check', 20)) : null);
+    const head = (t, back) => h('h4', {}, back ? h('button', { class: 'pl-btn', style: { width: '32px', height: '32px' }, 'aria-label': 'Back', onclick: () => { menuPage = 'root'; renderMenu(); } }, icon('chevL', 20)) : null, t);
+    if (menuPage === 'root') {
+      const tracks = video.textTracks ? video.textTracks.length : 0;
+      const subName = S.subIdx >= 0 && video.textTracks[S.subIdx] ? video.textTracks[S.subIdx].label : 'Off';
+      const at = video.audioTracks && video.audioTracks.length > 1;
+      box.append(head('Player settings'),
+        opt('Quality', { ic: 'hd', value: els.qBtn.textContent, run: () => { menuPage = 'quality'; renderMenu(); } }),
+        opt('Playback speed', { ic: 'speed', value: (S.speed === 1 ? 'Normal' : S.speed + '×'), run: () => { menuPage = 'speed'; renderMenu(); } }),
+        opt('Subtitles', { ic: 'cc', value: tracks || S.extraSubs.length ? subName : 'None', run: () => { menuPage = 'subs'; renderMenu(); } }),
+        opt('Audio track', { ic: 'audio', value: at ? '' : 'Single track', run: () => { menuPage = 'audio'; renderMenu(); } }));
+    } else if (menuPage === 'quality') {
+      box.append(head('Video quality', true));
+      if (it.kind === 'local') {
+        box.append(opt('Original' + (it.height ? ' · ' + qLabel(it.height) : ''), { on: true }));
+        box.append(h('p', { class: 'small', style: { margin: '8px 8px 0', color: 'var(--pl-fg2)' } }, 'This is a file on your phone, so it plays at its original quality.'));
+      } else {
+        const dl = RAW.downloads.done(it.id);
+        box.append(opt('Auto', { small: S.quality === 'auto' ? 'Best for this device' : '', on: S.quality === 'auto', run: () => pickQ('auto') }));
+        if (dl) box.append(opt('Downloaded · ' + qLabel(dl.q), { small: 'Offline', on: S.quality === 'offline', run: () => pickQ('offline') }));
+        Items.qualities(it).forEach(q => box.append(opt(qLabel(q), { small: fmtBytes(RAW.data.sizeOf(it, q)), on: S.quality === q, run: () => pickQ(q) })));
+      }
+    } else if (menuPage === 'speed') {
+      box.append(head('Playback speed', true));
+      [0.5, 0.75, 1, 1.25, 1.5, 2].forEach(v => box.append(opt(v === 1 ? 'Normal' : v + '×', { on: S.speed === v, run: () => { S.speed = v; video.playbackRate = v; paintInfo(); closeMenu(); } })));
+    } else if (menuPage === 'subs') {
+      box.append(head('Subtitles', true));
+      const tt = [...video.textTracks];
+      box.append(opt('Off', { on: S.subIdx < 0, run: () => { S.subTouched = true; S.subIdx = -1; applySubs(); closeMenu(); } }));
+      tt.forEach((t, i) => box.append(opt(t.label || ('Track ' + (i + 1)), { on: S.subIdx === i, run: () => { S.subTouched = true; S.subIdx = i; applySubs(); closeMenu(); } })));
+      box.append(opt('Add subtitle file…', { ic: 'plus', run: () => { closeMenu(); addSubFile(); } }));
+    } else if (menuPage === 'audio') {
+      box.append(head('Audio track', true));
+      const at = video.audioTracks;
+      if (at && at.length > 1) [...at].forEach((t, i) => box.append(opt(t.label || t.language || ('Track ' + (i + 1)), { on: t.enabled, run: () => { [...at].forEach((x, j) => { x.enabled = j === i; }); closeMenu(); } })));
+      else box.append(opt('Default audio', { on: true }), h('p', { class: 'small', style: { margin: '8px 8px 0', color: 'var(--pl-fg2)' } }, 'This video has one audio track, or this browser cannot switch tracks.'));
+    }
+    els.menu.replaceChildren(box);
+    els.menu.onclick = e => { if (e.target === els.menu) closeMenu(); };
+  }
+  function pickQ(q) {
+    S.quality = q; closeMenu();
+    const pos = video.currentTime || S.lastPos, playing = !video.paused;
+    load(pos, playing);
+  }
+
+  /* ---------- fullscreen, orientation, PiP, wake lock ---------- */
+  function enterFs() { const f = root.requestFullscreen || root.webkitRequestFullscreen; if (f) { try { const p = f.call(root, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => { }); } catch { /* */ } } }
+  function exitFs() { if (document.fullscreenElement) { try { document.exitFullscreen().catch(() => { }); } catch { /* */ } } }
+  function toggleFs() { if (document.fullscreenElement) exitFs(); else { if (!(root.requestFullscreen || root.webkitRequestFullscreen)) { toast('Fullscreen is not available here. The player already fills the screen.'); return; } enterFs(); } }
+  async function rotate() {
+    const o = screen.orientation;
+    if (!o || !o.lock) { toast('Turn your phone to rotate. Orientation lock is not supported here.'); return; }
+    try { if (!document.fullscreenElement) { enterFs(); await new Promise(r => setTimeout(r, 120)); } await o.lock(o.type.startsWith('landscape') ? 'portrait' : 'landscape'); }
+    catch { toast('Orientation lock is not allowed here. Turn your phone to rotate.'); }
+  }
+  function unlockOrient() { try { screen.orientation && screen.orientation.unlock && screen.orientation.unlock(); } catch { /* */ } }
+  async function togglePip() {
+    try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await video.requestPictureInPicture(); }
+    catch { toast('Picture-in-picture is not available for this video.'); }
+  }
+  async function wakeOn() { try { if (navigator.wakeLock && !wake) { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } } catch { wake = null; } }
+  function wakeOff() { try { wake && wake.release(); } catch { /* */ } wake = null; }
+  function mediaSession() {
+    try {
+      if (!('mediaSession' in navigator) || !S.item) return;
+      navigator.mediaSession.metadata = new MediaMetadata({ title: S.item.title, artist: 'RAW Stream', artwork: S.item.thumb && S.item.kind === 'catalog' ? [{ src: S.item.thumb, sizes: '640x360', type: 'image/jpeg' }] : [] });
+      navigator.mediaSession.setActionHandler('play', () => video.play());
+      navigator.mediaSession.setActionHandler('pause', () => video.pause());
+      navigator.mediaSession.setActionHandler('seekbackward', () => skip(-10));
+      navigator.mediaSession.setActionHandler('seekforward', () => skip(10));
+      navigator.mediaSession.setActionHandler('previoustrack', S.ids.length > 1 ? () => go(-1) : null);
+      navigator.mediaSession.setActionHandler('nexttrack', S.ids.length > 1 ? () => go(1) : null);
+    } catch { /* optional */ }
+  }
+  function onKey(e) {
+    if (!S.open || /INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName) && e.key !== 'Escape') return;
+    const k = e.key;
+    if (k === ' ' || k === 'k') { e.preventDefault(); toggle(); } else if (k === 'ArrowLeft' || k === 'j') skip(-10); else if (k === 'ArrowRight' || k === 'l') skip(10);
+    else if (k === 'f') toggleFs(); else if (k === 'm') { video.muted = !video.muted; } else if (k === 'Escape') { if (menuPage) closeMenu(); else if (!document.fullscreenElement) close(); }
+    else if (k === 'ArrowUp') { video.volume = clamp(video.volume + 0.1, 0, 1); hud('vol', video.volume, Math.round(video.volume * 100) + '%'); }
+    else if (k === 'ArrowDown') { video.volume = clamp(video.volume - 0.1, 0, 1); hud('vol', video.volume, Math.round(video.volume * 100) + '%'); }
+  }
+
+  /* ---------- open / close ---------- */
+  function startItem() {
+    const id = S.ids[S.idx], it = RAW.data.Items.byId(id);
+    if (!it) { toast('That video is no longer available.'); if (S.idx < S.ids.length - 1) { S.idx++; return startItem(); } return close(); }
+    S.item = it; S.lastPos = 0; S.subIdx = -1; S.subTouched = false; S.extraSubs = []; S.curQ = null; S.curLabel = '';
+    S.speed = Number(settings.get('defSpeed')) || 1;
+    const dq = settings.get('defQuality');
+    S.quality = (settings.get('autoQ') !== false || dq === 'auto') ? 'auto' : (() => { const qs = Items.qualities(it); const want = Number(dq); return qs.filter(q => q <= want)[0] || qs[qs.length - 1] || 'auto'; })();
+    const e = History.get(id);
+    const startAt = settings.get('remember') && e && !e.done && e.pos > 5 && (!e.dur || e.pos < e.dur - 4) ? e.pos : 0;
+    if (startAt) toast('Resumed from ' + fmtTime(startAt));
+    els.vol.value = video.muted ? 0 : video.volume; paintVol(); paintPlay(); paintInfo(); showUI();
+    load(startAt, true);
+  }
+  function open(ids, index = 0) {
+    if (!root) build();
+    ids = [].concat(ids).filter(Boolean); if (!ids.length) return;
+    S.ids = ids; S.idx = clamp(index, 0, ids.length - 1); S.open = true;
+    root.hidden = false; root.classList.remove('ui-hidden'); els.menu.hidden = true; menuPage = null;
+    if (settings.get('autoFs')) enterFs();
+    bright = 1; video.style.filter = '';
+    startItem(); cancelAnimationFrame(rafId); rafId = requestAnimationFrame(loop);
+  }
+  function close() {
+    if (!S.open) return;
+    saveNow(); S.open = false;
+    try { video.pause(); } catch { /* */ }
+    video.removeAttribute('src'); video.replaceChildren(); try { video.load(); } catch { /* */ }
+    revoke(); S.extraSubs.forEach(s => { try { URL.revokeObjectURL(s.url); } catch { /* */ } });
+    exitFs(); unlockOrient(); wakeOff(); clearTimeout(slowT); clearTimeout(uiTimer); cancelAnimationFrame(rafId);
+    try { if (document.pictureInPictureElement) document.exitPictureInPicture(); } catch { /* */ }
+    root.hidden = true; hideError(); setSpin(false);
+    bus.emit('player:close');
+  }
+
+  RAW.player = { open, close, isOpen: () => S.open, state: S };
+})();
+
+/* ===== MODULE: screens =====
+   Reusable UI pieces (cards, rows, detail sheet) and the main screens:
+   Home, Search, My Videos, Downloads, Library. Settings lives in settings.js.
+   Add a screen:   RAW.screens.push({id,label,icon,render(el)})
+   Add a section:  RAW.homeSections.push({id,title,items:()=>[ids]})
+*/
+(function () {
+  const { h, icon, fmtTime, fmtBytes, qLabel, fmtAgo, logo } = RAW.util;
+  const { Items, Fav, Playlists, History, SearchHist, Local, sizeOf } = RAW.data;
+  const D = RAW.downloads, bus = RAW.bus, store = RAW.store;
+
+  /* ---------- shared pieces ---------- */
+  const hueOf = id => { let x = 0; for (const c of id) x = (x * 31 + c.charCodeAt(0)) % 360; return x; };
+  function thumb(it, { dur = true, tag = true } = {}) {
+    const box = h('div', { class: 'thumb' });
+    if (it.kind === 'catalog') box.appendChild(h('img', { src: it.thumb, alt: '', loading: 'lazy', decoding: 'async', onerror: e => { e.target.remove(); } }));
+    else {
+      box.style.background = `linear-gradient(135deg, hsl(${hueOf(it.id)} 45% 28%), hsl(${(hueOf(it.id) + 50) % 360} 50% 18%))`;
+      const ph = h('div', { class: 'ph' }, icon(it.unsupported ? 'info' : 'video', 28)); box.appendChild(ph);
+      Local.thumb(it).then(src => { if (src) { box.replaceChildren(h('img', { src, alt: '', decoding: 'async' })); redecorate(); } });
+    }
+    function redecorate() { decorate(); }
+    function decorate() {
+      box.querySelectorAll('.tag,.dur,.prog').forEach(n => n.remove());
+      if (tag) {
+        const dl = it.kind === 'catalog' ? D.done(it.id) : null;
+        const q = it.kind === 'catalog' ? Items.maxQ(it) : it.height;
+        if (dl) box.appendChild(h('span', { class: 'tag acc' }, 'OFFLINE'));
+        else if (q) box.appendChild(h('span', { class: 'tag' }, qLabel(q)));
+        else if (it.kind === 'local') box.appendChild(h('span', { class: 'tag' }, it.unsupported ? 'UNSUPPORTED' : 'LOCAL'));
+      }
+      if (dur && it.duration) box.appendChild(h('span', { class: 'dur' }, fmtTime(it.duration)));
+      const p = History.pct(it.id); if (p > 0.01 && p < 0.99) box.appendChild(h('div', { class: 'prog' }, h('i', { style: { width: Math.round(p * 100) + '%' } })));
+    }
+    decorate();
+    return box;
+  }
+  function subtitleOf(it) {
+    if (it.kind === 'local') return [fmtBytes(it.size), it.height ? qLabel(it.height) : ''].filter(Boolean).join(' · ');
+    return [Items.typeLabel(it), it.ep || it.year].filter(Boolean).join(' · ');
+  }
+  function playItem(it, queue) {
+    if (it.kind === 'local' && !it.file) return relink(it);
+    if (queue) RAW.player.open(queue, Math.max(0, queue.indexOf(it.id))); else RAW.player.open([it.id], 0);
+  }
+  function openItem(it, queue) { if (it.kind === 'catalog') detail(it); else playItem(it, queue); }
+  function card(it, { queue, extra } = {}) {
+    const open = () => openItem(it, queue);
+    return h('div', { class: 'card', role: 'button', tabindex: '0', onclick: open, onkeydown: e => { if (e.key === 'Enter') open(); } },
+      thumb(it),
+      h('div', { class: 'meta' }, h('div', {}, h('div', { class: 't' }, it.title), h('div', { class: 's' }, extra || subtitleOf(it))),
+        h('button', { class: 'more', 'aria-label': 'More actions for ' + it.title, onclick: e => { e.stopPropagation(); itemMenu(it); } }, icon('more', 18))));
+  }
+  function row(it, { queue, right, sub } = {}) {
+    const open = () => openItem(it, queue);
+    return h('div', { class: 'listrow', role: 'button', tabindex: '0', onclick: open, onkeydown: e => { if (e.key === 'Enter') open(); } },
+      thumb(it), h('div', { class: 'info' }, h('div', { class: 't' }, it.title), h('div', { class: 's' }, sub || subtitleOf(it))),
+      right || h('button', { class: 'more', 'aria-label': 'More actions', onclick: e => { e.stopPropagation(); itemMenu(it); } }, icon('more', 20)));
+  }
+  function empty(ic, title, text, btn) {
+    return h('div', { class: 'empty' }, icon(ic, 30), h('b', {}, title), h('div', {}, text), btn || null);
+  }
+
+  /* ---------- item actions (registry: add your own with RAW.itemActions.push) ---------- */
+  RAW.itemActions.push(
+    { id: 'play', label: 'Play', icon: 'play', when: () => true, run: it => playItem(it) },
+    { id: 'fav', label: 'Favorites', icon: 'heart', when: () => true, dyn: it => Fav.has(it.id) ? 'Remove from favorites' : 'Add to favorites', run: it => { const on = Fav.toggle(it.id); RAW.toast(on ? 'Added to favorites' : 'Removed from favorites'); } },
+    { id: 'playlist', label: 'Add to playlist', icon: 'list', when: () => true, run: it => addToPlaylist(it) },
+    { id: 'download', label: 'Download', icon: 'download', when: it => it.kind === 'catalog', dyn: it => D.done(it.id) ? 'Downloaded' : (it.downloadable ? 'Download' : 'Download not allowed'), run: it => { if (!D.done(it.id)) D.pick(it); } },
+    { id: 'remove-local', label: 'Remove from My Videos', icon: 'trash', danger: true, when: it => it.kind === 'local', run: it => { Local.remove(it.id); RAW.toast('Removed from My Videos. The file on your phone is untouched.'); } },
+    { id: 'remove-history', label: 'Remove from history', icon: 'clock', when: it => !!History.get(it.id), run: it => History.remove(it.id) },
+  );
+  function itemMenu(it) {
+    RAW.sheet.actions(it.title, RAW.itemActions.filter(a => a.when(it)).map(a => ({ label: a.dyn ? a.dyn(it) : a.label, icon: a.icon, danger: a.danger, run: () => a.run(it) })));
+  }
+  function addToPlaylist(it) {
+    const s = RAW.sheet.open({ title: 'Add to playlist' });
+    function paint() {
+      const lists = Playlists.list();
+      s.set([
+        h('button', { class: 'act', onclick: () => RAW.sheet.prompt({ title: 'New playlist', label: 'Playlist name', placeholder: 'e.g. Weekend watch', ok: 'Create', onOk: n => { const p = Playlists.create(n); Playlists.add(p.id, it.id); RAW.toast('Added to "' + n + '"'); s.close(); } }) }, icon('plus', 22), h('span', {}, 'New playlist')),
+        ...lists.map(p => h('button', { class: 'act', onclick: () => { const ok = Playlists.add(p.id, it.id); RAW.toast(ok ? 'Added to "' + p.name + '"' : 'Already in "' + p.name + '"'); s.close(); } },
+          icon('list', 22), h('span', {}, p.name), h('small', {}, p.items.length + ' videos'))),
+      ]);
+    }
+    paint();
+  }
+
+  /* ---------- detail sheet (catalog items) ---------- */
+  function detail(it) {
+    let off = () => { }, off2 = () => { };
+    const s = RAW.sheet.open({ title: '', full: true, onClose: () => { off(); off2(); } });
+    function paint() {
+      const hist = History.get(it.id), resume = hist && !hist.done && hist.pos > 5;
+      const dl = D.done(it.id), active = D.forItem(it.id).find(r => ['queued', 'downloading', 'paused'].includes(r.status));
+      const fav = Fav.has(it.id);
+      const dlBtn = dl ? h('button', { class: 'btn wide', onclick: () => RAW.sheet.confirm({ title: 'Remove download?', text: 'The offline copy of "' + it.title + '" (' + qLabel(dl.q) + ') will be deleted from this device.', ok: 'Remove', danger: true, onOk: () => D.remove(dl.key) }) }, icon('check', 18), 'Downloaded · ' + qLabel(dl.q))
+        : active ? h('button', { class: 'btn wide', onclick: () => { s.close(); RAW.router.show('downloads'); } }, icon('download', 18), Math.round(((active.loaded + (active.live || 0)) / (active.size || 1)) * 100) + '% · View')
+        : h('button', { class: 'btn wide', disabled: !it.downloadable, onclick: () => D.pick(it) }, icon('download', 18), it.downloadable ? 'Download' : 'Download locked');
+      s.set([
+        h('div', { class: 'd-hero' }, h('img', { src: it.thumb, alt: '' })),
+        h('h1', { class: 'd-title' }, it.title),
+        h('div', { class: 'd-meta' }, h('span', { class: 'pill' }, Items.typeLabel(it)), it.ep ? h('span', {}, it.ep) : null, h('span', {}, it.year), h('span', {}, fmtTime(it.duration)), h('span', { class: 'pill' }, it.rating || ''), ...(it.tags || []).map(t => h('span', { class: 'faint' }, '#' + t))),
+        h('p', { class: 'muted', style: { margin: 0 } }, it.desc),
+        it.license ? h('div', { class: 'faint small' }, 'License: ' + it.license + (it.repo ? ' · from ' + it.repo.name : '')) : null,
+        h('div', { class: 'd-actions' },
+          h('button', { class: 'btn primary wide', onclick: () => { s.close(); playItem(it); } }, icon('play', 20), resume ? 'Resume from ' + fmtTime(hist.pos) : 'Play'),
+          h('button', { class: 'btn', onclick: () => { Fav.toggle(it.id); paint(); } }, icon('heart', 18, fav), fav ? 'In favorites' : 'Favorite'),
+          h('button', { class: 'btn', onclick: () => addToPlaylist(it) }, icon('list', 18), 'Playlist'),
+          dlBtn,
+          resume ? h('button', { class: 'btn wide', onclick: () => { History.remove(it.id); s.close(); playItem(it); } }, icon('retry', 18), 'Start from beginning') : null),
+        h('div', {}, h('h2', { style: { fontSize: '14px', margin: '4px 0 8px' } }, 'Available qualities'),
+          h('div', { class: 'qgrid' }, ...Items.qualities(it).map(q => h('div', { class: 'qrow' }, h('b', {}, qLabel(q)), h('span', { class: 'muted small' }, q >= 1080 ? 'Full HD' : q >= 720 ? 'HD' : 'Standard'), h('span', { class: 'sz' }, fmtBytes(sizeOf(it, q)))))),
+          h('p', { class: 'faint small', style: { margin: '8px 2px 0' } }, 'Only qualities provided by this source are shown. Auto picks the best one your device and connection can handle.')),
+        h('div', { class: 'faint small' }, 'Subtitles: ' + (it.subs || []).map(x => x.label).join(', ')),
+      ]);
+    }
+    paint();
+    let raf = 0;
+    const repaint = () => { if (raf || !s.wrap.isConnected) return; raf = requestAnimationFrame(() => { raf = 0; if (s.wrap.isConnected) paint(); }); };
+    off = bus.on('dl:change', repaint); off2 = bus.on('lib:change', repaint);
+  }
+
+  /* ---------- relink a local file that was picked in an earlier session ---------- */
+  function relink(it) {
+    RAW.toast('Pick "' + it.name + '" again to play it. Browsers cannot reopen phone files on their own.');
+    pickFiles(files => Local.addFiles(files).then(() => { const f = Items.byId(it.id); if (f && f.file) playItem(f); }), { multiple: false });
+  }
+  function pickFiles(cb, { folder = false, multiple = true } = {}) {
+    const inp = h('input', { type: 'file', accept: folder ? '' : 'video/*,.mkv,.avi,.mov,.m4v,.webm,.mp4,.3gp,.ts', multiple: multiple || folder, style: { display: 'none' } });
+    if (folder) { inp.setAttribute('webkitdirectory', ''); inp.setAttribute('directory', ''); }
+    inp.addEventListener('change', () => { const f = [...(inp.files || [])]; inp.remove(); if (f.length) cb(f); });
+    document.body.appendChild(inp); inp.click();
+    setTimeout(() => inp.remove(), 120000);
+  }
+
+  /* ================= HOME ================= */
+  const rail = (ids, o = {}) => h('div', { class: 'rail' }, ...ids.map(id => Items.byId(id)).filter(Boolean).map(it => card(it, { queue: o.queue === false ? null : ids, extra: o.extra && o.extra(it) })));
+  RAW.homeSections.push(
+    { id: 'featured', title: 'Featured', items: () => Items.catalog().filter(i => i.featured).map(i => i.id),
+      render(ids) {
+        return h('div', { class: 'hero' }, ...ids.map(id => Items.byId(id)).filter(Boolean).map(it =>
+          h('div', { class: 'slide', role: 'button', tabindex: '0', onclick: () => detail(it), onkeydown: e => { if (e.key === 'Enter') detail(it); } },
+            h('img', { src: it.thumb, alt: '', loading: 'lazy' }),
+            h('div', { class: 'in' }, h('h3', {}, it.title),
+              h('div', { class: 'row' }, h('span', { class: 'tag acc', style: { position: 'static' } }, qLabel(Items.maxQ(it))), h('span', {}, Items.typeLabel(it)), h('span', {}, String(it.year)), h('span', {}, fmtTime(it.duration))),
+              h('div', { class: 'btns' }, h('button', { class: 'btn primary sm', onclick: e => { e.stopPropagation(); playItem(it); } }, icon('play', 16), 'Play'),
+                h('button', { class: 'btn sm', style: { background: 'rgba(255,255,255,.18)', color: '#fff', borderColor: 'transparent' }, onclick: e => { e.stopPropagation(); const on = Fav.toggle(it.id); RAW.toast(on ? 'Added to favorites' : 'Removed from favorites'); } }, icon('heart', 16), 'Favorite'))))));
+      }, noTitle: true },
+    { id: 'continue', title: 'Continue Watching', items: () => History.resumable().map(e => e.id), extra: it => { const p = History.get(it.id); return fmtTime(p.pos) + ' of ' + fmtTime(p.dur); } },
+    { id: 'trending', title: 'Trending', items: () => Items.catalog().filter(i => i.trending).map(i => i.id) },
+    { id: 'movies', title: 'Movies', items: () => Items.catalog().filter(i => i.type === 'movie').map(i => i.id) },
+    { id: 'series', title: 'Series', items: () => Items.catalog().filter(i => i.type === 'series').map(i => i.id) },
+    { id: 'tv', title: 'TV Shows', items: () => Items.catalog().filter(i => i.type === 'tv').map(i => i.id) },
+    { id: 'recent', title: 'Recently Watched', items: () => History.recent().slice(0, 12).map(e => e.id), extra: it => fmtAgo(History.get(it.id).t) },
+    { id: 'favorites', title: 'Favorites', items: () => Fav.list().filter(id => Items.byId(id)) },
+    { id: 'downloads', title: 'Downloads', items: () => [...new Set(D.list().filter(r => r.status === 'completed').map(r => r.itemId))].filter(id => Items.byId(id)), extra: it => 'Offline · ' + qLabel(D.done(it.id).q) },
+    { id: 'myvideos', title: 'My Videos', items: () => Local.all().sort((a, b) => b.added - a.added).slice(0, 12).map(i => i.id) },
+  );
+  function homeLayout() {
+    const saved = store.get('homeLayout', { order: [], hidden: [] });
+    const ids = RAW.homeSections.map(s => s.id);
+    const order = saved.order.filter(i => ids.includes(i)).concat(ids.filter(i => !saved.order.includes(i)));
+    return { order, hidden: saved.hidden.filter(i => ids.includes(i)) };
+  }
+  function customizeHome() {
+    const s = RAW.sheet.open({ title: 'Customize Home' });
+    function paint() {
+      const lay = homeLayout();
+      s.set([
+        h('p', { class: 'muted small', style: { margin: 0 } }, 'Move sections up or down, or hide the ones you do not want on Home.'),
+        ...lay.order.map((id, i) => {
+          const sec = RAW.homeSections.find(x => x.id === id), off = lay.hidden.includes(id);
+          const move = d => { const o = lay.order.slice(); const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; store.set('homeLayout', { order: o, hidden: lay.hidden }); paint(); bus.emit('home:layout'); };
+          return h('div', { class: 'cust-row' + (off ? ' off' : '') },
+            h('span', { class: 'lab' }, sec.title),
+            h('button', { class: 'iconbtn plain', 'aria-label': 'Move up', disabled: i === 0, onclick: () => move(-1) }, icon('up', 18)),
+            h('button', { class: 'iconbtn plain', 'aria-label': 'Move down', disabled: i === lay.order.length - 1, onclick: () => move(1) }, icon('down', 18)),
+            h('button', { class: 'iconbtn plain', 'aria-label': off ? 'Show section' : 'Hide section', onclick: () => { const hid = off ? lay.hidden.filter(x => x !== id) : lay.hidden.concat(id); store.set('homeLayout', { order: lay.order, hidden: hid }); paint(); bus.emit('home:layout'); } }, icon(off ? 'eyeoff' : 'eye', 18)));
+        }),
+        h('button', { class: 'btn', onclick: () => { store.set('homeLayout', { order: [], hidden: [] }); paint(); bus.emit('home:layout'); } }, 'Reset to default'),
+      ]);
+    }
+    paint();
+  }
+  const Home = {
+    id: 'home', label: 'Home', icon: 'home',
+    render(el) {
+      const lay = homeLayout();
+      el.append(h('div', { class: 'sec-head', style: { margin: '6px 0 2px' } }, h('h1', { class: 'h-screen', style: { margin: 0 } }, 'Home'),
+        h('button', { class: 'btn sm', onclick: customizeHome }, icon('sliders', 16), 'Customize')));
+      let shown = 0;
+      lay.order.filter(id => !lay.hidden.includes(id)).forEach(id => {
+        const sec = RAW.homeSections.find(x => x.id === id); let ids = [];
+        try { ids = sec.items() || []; } catch (e) { console.warn('section failed', id, e); }
+        if (!ids.length) return;
+        shown++;
+        const body = sec.render ? sec.render(ids) : rail(ids, { extra: sec.extra });
+        el.append(sec.noTitle ? h('div', { style: { marginTop: '10px' } }, body) : h('div', {}, h('div', { class: 'sec-head' }, h('h2', {}, sec.title)), body));
+      });
+      if (!shown && !Items.all().length) el.append(empty('video', 'Add your first videos', 'Add a repository link to get a list of videos, or play videos stored on this phone.',
+        h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', onclick: () => RAW.openSettings() }, icon('plus', 18), 'Add repository'), h('button', { class: 'btn', onclick: () => RAW.router.show('local') }, icon('folder', 18), 'My Videos'))));
+      else if (!shown) el.append(empty('home', 'Home is empty', 'Every section is hidden or has nothing in it yet. Tap Customize to bring sections back.'));
+    },
+  };
+
+  /* ================= SEARCH ================= */
+  const Search = (() => {
+    const F = { q: '', type: 'all', minQ: 0, dl: false, sort: 'name' };
+    return {
+      id: 'search', label: 'Search', icon: 'search',
+      render(el) {
+        const inp = h('input', { id: 'q', type: 'search', placeholder: 'Search videos by title', value: F.q, autocomplete: 'off', enterkeyhint: 'search', 'aria-label': 'Search by title' });
+        const clear = h('button', { class: 'iconbtn plain', style: { width: '28px', height: '28px' }, 'aria-label': 'Clear search', hidden: !F.q, onclick: () => { inp.value = ''; F.q = ''; paintAll(); inp.focus(); } }, icon('x', 16));
+        const fbtn = h('button', { class: 'btn sm', onclick: openFilters }, icon('filter', 16), 'Filters');
+        const out = h('div', { style: { marginTop: '12px' } });
+        const sortSel = h('select', { class: 'sel', id: 'sort', 'aria-label': 'Sort results', onchange: e => { F.sort = e.target.value; paintResults(); } },
+          ...[['name', 'Name'], ['quality', 'Quality'], ['date', 'Date'], ['duration', 'Duration']].map(([v, l]) => h('option', { value: v, selected: F.sort === v }, 'Sort: ' + l)));
+        el.append(h('h1', { class: 'h-screen' }, 'Search'), h('div', { class: 'row-tools' }, h('label', { class: 'field' }, icon('search', 20), inp, clear)), h('div', { class: 'row-tools' }, fbtn, h('span', { style: { flex: 1 } }), sortSel), out);
+        function active() { return (F.type !== 'all') + (F.minQ > 0) + F.dl; }
+        function matches() {
+          const q = F.q.trim().toLowerCase();
+          let list = Items.all().filter(it => {
+            if (q && !(it.title.toLowerCase().includes(q) || (it.tags || []).some(t => t.toLowerCase().includes(q)) || (it.name || '').toLowerCase().includes(q))) return false;
+            if (F.type !== 'all' && it.type !== F.type) return false;
+            if (F.minQ && (Items.maxQ(it) < F.minQ)) return false;
+            if (F.dl && !(it.kind === 'catalog' && it.downloadable)) return false;
+            return true;
+          });
+          const by = { name: (a, b) => a.title.localeCompare(b.title), quality: (a, b) => Items.maxQ(b) - Items.maxQ(a), date: (a, b) => (b.added || 0) - (a.added || 0), duration: (a, b) => (b.duration || 0) - (a.duration || 0) }[F.sort];
+          return list.sort(by);
+        }
+        function paintResults() {
+          fbtn.replaceChildren(...[icon('filter', 16), h('span', {}, 'Filters'), active() ? h('span', { style: { background: 'var(--accent)', color: 'var(--on-accent)', borderRadius: '8px', padding: '0 6px', fontSize: '11px' } }, String(active())) : null].filter(Boolean));
+          const list = matches();
+          if (!F.q.trim() && !active()) { return paintIdle(); }
+          if (!list.length) { out.replaceChildren(empty('search', 'No matches', 'Try a different title, or loosen the filters.', active() ? h('button', { class: 'btn sm', onclick: () => { F.type = 'all'; F.minQ = 0; F.dl = false; paintAll(); } }, 'Clear filters') : null)); return; }
+          out.replaceChildren(h('div', { class: 'faint small', style: { margin: '0 2px 6px' } }, list.length + (list.length === 1 ? ' result' : ' results')), h('div', { class: 'list' }, ...list.map(it => row(it, { queue: list.map(x => x.id) }))));
+        }
+        function paintIdle() {
+          const hist = SearchHist.list();
+          const kids = [];
+          if (hist.length) kids.push(h('div', { class: 'sec-head', style: { margin: '6px 0 8px' } }, h('h2', {}, 'Recent searches'), h('button', { class: 'btn sm', onclick: () => { SearchHist.clear(); paintIdle(); } }, 'Clear history')),
+            h('div', { class: 'list' }, ...hist.map(q => h('div', { class: 'listrow', style: { padding: '4px 8px' }, role: 'button', tabindex: '0', onclick: () => { inp.value = q; F.q = q; paintAll(); } }, icon('clock', 18), h('div', { class: 'info' }, h('div', { class: 't', style: { fontWeight: 600 } }, q)),
+              h('button', { class: 'more', 'aria-label': 'Remove ' + q, onclick: e => { e.stopPropagation(); SearchHist.remove(q); paintIdle(); } }, icon('x', 16))))));
+          else kids.push(empty('search', 'Find something to watch', 'Search by title, tag or file name. Your demo catalog and My Videos are searched together.'));
+          kids.push(h('div', { class: 'sec-head' }, h('h2', {}, 'Browse all')), h('div', { class: 'grid' }, ...Items.catalog().map(it => card(it))));
+          out.replaceChildren(...kids);
+        }
+        function paintAll() { clear.hidden = !F.q; paintResults(); }
+        inp.addEventListener('input', () => { F.q = inp.value; clear.hidden = !F.q; paintResults(); });
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') SearchHist.add(F.q); });
+        inp.addEventListener('change', () => SearchHist.add(F.q));
+        function openFilters() {
+          const s = RAW.sheet.open({ title: 'Filters' });
+          function paint() {
+            const chip = (label, on, fn) => h('button', { class: 'chip' + (on ? ' on' : ''), onclick: fn }, label);
+            s.set([
+              h('div', { class: 'formrow' }, h('label', {}, 'Type'), h('div', { class: 'chips', style: { flexWrap: 'wrap' } }, ...[['all', 'All'], ['movie', 'Movies'], ['series', 'Series'], ['tv', 'TV Shows'], ['local', 'My Videos']].map(([v, l]) => chip(l, F.type === v, () => { F.type = v; paint(); paintResults(); })))),
+              h('div', { class: 'formrow' }, h('label', {}, 'Minimum quality'), h('div', { class: 'chips', style: { flexWrap: 'wrap' } }, ...[[0, 'Any'], [480, '480p+'], [720, '720p+'], [1080, '1080p+'], [2160, '4K']].map(([v, l]) => chip(l, F.minQ === v, () => { F.minQ = v; paint(); paintResults(); })))),
+              h('div', { class: 'formrow' }, h('label', {}, 'Availability'), h('div', { class: 'chips' }, chip('Downloadable only', F.dl, () => { F.dl = !F.dl; paint(); paintResults(); }))),
+              h('div', { class: 'btnrow' }, h('button', { class: 'btn', onclick: () => { F.type = 'all'; F.minQ = 0; F.dl = false; paint(); paintResults(); } }, 'Reset'), h('button', { class: 'btn primary', onclick: () => s.close() }, 'Show results')),
+            ]);
+          }
+          paint();
+        }
+        paintResults();
+      },
+    };
+  })();
+
+  /* ================= MY VIDEOS (local) ================= */
+  const MyVideos = (() => {
+    const F = { q: '', sort: 'date', limit: 48, scan: null };
+    return {
+      id: 'local', label: 'My Videos', icon: 'video',
+      render(el) {
+        const inp = h('input', { id: 'lq', type: 'search', placeholder: 'Search my videos', value: F.q, autocomplete: 'off', 'aria-label': 'Search my videos' });
+        const sortSel = h('select', { class: 'sel', id: 'lsort', 'aria-label': 'Sort my videos', onchange: e => { F.sort = e.target.value; paint(); } },
+          ...[['date', 'Newest'], ['name', 'Name'], ['size', 'Size'], ['duration', 'Duration']].map(([v, l]) => h('option', { value: v, selected: F.sort === v }, l)));
+        const status = h('div', { class: 'faint small', style: { margin: '6px 2px' } });
+        const folders = h('div', { class: 'chips', style: { margin: '8px 0 2px' } });
+        const out = h('div', { style: { marginTop: '10px' } });
+        el.append(h('h1', { class: 'h-screen' }, 'My Videos'),
+          h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', onclick: () => pickFiles(add) }, icon('plus', 18), 'Add videos'), h('button', { class: 'btn', onclick: () => pickFiles(add, { folder: true }) }, icon('folder', 18), 'Scan a folder')),
+          h('div', { class: 'row-tools' }, h('label', { class: 'field' }, icon('search', 20), inp), sortSel), folders, status, out);
+        async function add(files) {
+          F.scan = 'Scanning ' + files.length + ' files…'; paint();
+          try {
+            const n = await Local.addFiles(files, { onProgress: (d, t) => { if (d % 8 === 0 || d === t) { F.scan = 'Scanned ' + d + ' of ' + t + ' files…'; status.textContent = F.scan; } } });
+            RAW.toast(n ? 'Added ' + n + (n === 1 ? ' video' : ' videos') : 'No videos found in that selection.');
+          } catch (e) { console.warn(e); RAW.toast('Some files could not be read.'); }
+          F.scan = null; paint();
+        }
+        function list() {
+          const q = F.q.trim().toLowerCase();
+          const l = Local.all().filter(i => !q || i.title.toLowerCase().includes(q) || (i.name || '').toLowerCase().includes(q));
+          const by = { date: (a, b) => b.date - a.date, name: (a, b) => a.title.localeCompare(b.title), size: (a, b) => b.size - a.size, duration: (a, b) => b.duration - a.duration }[F.sort];
+          return l.sort(by);
+        }
+        function paint() {
+          const all = Local.all(); const l = list();
+          status.textContent = F.scan || (all.length ? all.length + (all.length === 1 ? ' video' : ' videos') + ' · ' + fmtBytes(all.reduce((a, i) => a + i.size, 0)) : '');
+          folders.replaceChildren(...Local.folders().map(f => h('span', { class: 'chip' }, icon('folder', 14), f.name + ' · ' + f.count,
+            h('button', { 'aria-label': 'Remove folder ' + f.name, style: { display: 'inline-flex', marginLeft: '2px' }, onclick: () => RAW.sheet.confirm({ title: 'Remove folder?', text: 'Videos from "' + f.name + '" will be removed from the app. Files on your phone are not touched.', ok: 'Remove', danger: true, onOk: () => Local.removeFolder(f.name) }) }, icon('x', 14)))));
+          if (!all.length) { out.replaceChildren(empty('video', 'Your phone videos live here', 'Add videos or scan a folder. They play without internet, resume where you stopped and never leave your device.',
+            h('div', { class: 'btnrow' }, h('button', { class: 'btn primary', onclick: () => pickFiles(add) }, 'Add videos'), h('button', { class: 'btn', onclick: () => pickFiles(add, { folder: true }) }, 'Scan a folder')))); return; }
+          if (!l.length) { out.replaceChildren(empty('search', 'No matches', 'No video in My Videos matches that search.')); return; }
+          const shown = l.slice(0, F.limit), ids = l.map(i => i.id);
+          const missing = all.filter(i => !i.file).length;
+          out.replaceChildren(...[
+            missing ? h('div', { class: 'offline-pill', style: { margin: '0 0 10px', color: 'var(--fg2)' } }, icon('info', 16), missing + ' videos need to be picked again after a restart. Tap one to re-select it.') : null,
+            h('div', { class: 'grid' }, ...shown.map(it => card(it, { queue: ids.filter(id => Items.byId(id).file), extra: !it.file ? 'Tap to re-select' : subtitleOf(it) }))),
+            l.length > shown.length ? h('div', { style: { textAlign: 'center', marginTop: '14px' } }, h('button', { class: 'btn', onclick: () => { F.limit += 48; paint(); } }, 'Show more (' + (l.length - shown.length) + ')')) : null].filter(Boolean));
+        }
+        inp.addEventListener('input', () => { F.q = inp.value; F.limit = 48; paint(); });
+        paint();
+        const offs = [bus.on('local:change', () => { if (el.isConnected) paint(); }), bus.on('local:folders', () => { if (el.isConnected) paint(); })];
+        el._cleanup = () => offs.forEach(o => o());
+      },
+    };
+  })();
+
+  /* ================= DOWNLOADS ================= */
+  const Downloads = (() => {
+    let tab = 'active';
+    return {
+      id: 'downloads', label: 'Downloads', icon: 'download',
+      badge: () => D.list().filter(r => r.status === 'downloading').length,
+      render(el) {
+        const body = h('div', { style: { marginTop: '12px' } });
+        const seg = h('div', { class: 'seg' });
+        el.append(h('h1', { class: 'h-screen' }, 'Downloads'), seg, body);
+        const groups = () => ({
+          active: D.list().filter(r => ['queued', 'downloading', 'paused'].includes(r.status)),
+          done: D.list().filter(r => r.status === 'completed'),
+          failed: D.list().filter(r => r.status === 'failed'),
+          log: D.log(),
+        });
+        function paint() {
+          const g = groups();
+          seg.replaceChildren(...[['active', 'Active'], ['done', 'Done'], ['failed', 'Failed'], ['log', 'History']].map(([k, l]) =>
+            h('button', { class: tab === k ? 'on' : '', onclick: () => { tab = k; paint(); } }, l, g[k].length && k !== 'log' ? h('span', { class: 'n' }, g[k].length) : null)));
+          const list = g[tab];
+          if (tab === 'log') {
+            body.replaceChildren(list.length ? h('div', {}, h('div', { class: 'row-tools' }, h('span', { class: 'faint small', style: { flex: 1 } }, 'Recent download activity'), h('button', { class: 'btn sm', onclick: () => { store.set('dllog', []); paint(); } }, 'Clear')),
+              h('div', { class: 'list' }, ...list.map(e => h('div', { class: 'listrow', style: { cursor: 'default' } }, icon(e.status === 'completed' ? 'check' : e.status === 'failed' ? 'info' : 'x', 20),
+                h('div', { class: 'info' }, h('div', { class: 't' }, e.title + ' · ' + qLabel(e.q)), h('div', { class: 's' }, e.status[0].toUpperCase() + e.status.slice(1) + ' · ' + fmtBytes(e.size) + ' · ' + fmtAgo(e.t))))))) : empty('clock', 'No history yet', 'Finished, failed and canceled downloads are listed here.'));
+            return;
+          }
+          if (!list.length) {
+            const msg = { active: ['No active downloads', 'Pick a video and tap Download. You choose the quality first.'], done: ['Nothing downloaded yet', 'Downloaded videos play offline. They are kept in private app storage.'], failed: ['No failed downloads', 'Anything that fails shows up here with a Retry button.'] }[tab];
+            body.replaceChildren(empty('download', msg[0], msg[1], tab !== 'failed' ? h('button', { class: 'btn primary', onclick: () => RAW.router.show('home') }, 'Browse videos') : null)); return;
+          }
+          body.replaceChildren(h('div', { class: 'list', style: { gap: '10px' } }, ...list.map(dlCard)));
+        }
+        function dlCard(r) {
+          const it = Items.byId(r.itemId); const pct = Math.min(100, Math.round(((r.loaded + (r.live || 0)) / (r.size || 1)) * 100));
+          const btn = (ic, label, fn, cls) => h('button', { class: 'btn sm ' + (cls || ''), onclick: fn }, icon(ic, 16), label);
+          const btns = [];
+          if (r.status === 'downloading' || r.status === 'queued') btns.push(btn('pause2', 'Pause', () => D.pause(r.key)));
+          if (r.status === 'paused') btns.push(btn('play', 'Resume', () => D.resume(r.key), 'primary'));
+          if (r.status === 'failed') btns.push(btn('retry', 'Retry', () => D.retry(r.key), 'primary'));
+          if (r.status === 'completed' && it) btns.push(btn('play', 'Play', () => playItem(it), 'primary'));
+          if (r.status === 'completed') btns.push(btn('trash', 'Delete', () => RAW.sheet.confirm({ title: 'Delete download?', text: '"' + r.title + '" (' + qLabel(r.q) + ') will be removed from this device.', ok: 'Delete', danger: true, onOk: () => D.remove(r.key) }), 'danger'));
+          else btns.push(btn('x', 'Cancel', () => RAW.sheet.confirm({ title: 'Cancel download?', text: 'Progress for "' + r.title + '" will be discarded.', ok: 'Cancel download', danger: true, onOk: () => D.cancel(r.key) }), 'danger'));
+          return h('div', { class: 'dl', 'data-key': r.key },
+            h('div', { class: 'dl-top' }, it ? thumb(it, { dur: false, tag: false }) : h('div', { class: 'thumb', style: { width: '92px' } }),
+              h('div', { class: 'info' }, h('div', { class: 't', style: { fontWeight: 700 } }, r.title), h('div', { class: 's faint small' }, qLabel(r.q) + ' · ' + fmtBytes(r.size)),
+                h('div', { class: 'small ' + (r.status === 'failed' ? '' : 'muted'), style: r.status === 'failed' ? { color: 'var(--bad)' } : {} }, D.statusText(r)))),
+            r.status !== 'completed' ? h('div', {}, h('div', { class: 'bar' }, h('i', { style: { width: pct + '%' } })), h('div', { class: 'dl-stats', style: { marginTop: '6px' } }, h('span', {}, pct + '%'), h('span', {}, fmtBytes(r.loaded + (r.live || 0)) + ' / ' + fmtBytes(r.size)))) : h('div', { class: 'bar good' }, h('i', { style: { width: '100%' } })),
+            h('div', { class: 'dl-btns' }, btns));
+        }
+        paint();
+        let raf = 0;
+        const off = bus.on('dl:change', () => { if (!el.isConnected || raf) return; raf = requestAnimationFrame(() => { raf = 0; paint(); }); });
+        el._cleanup = off;
+      },
+    };
+  })();
+
+  /* ================= LIBRARY (favorites / playlists / history) ================= */
+  const Library = (() => {
+    const F = { tab: 'fav', q: '', sort: 'recent', pl: null };
+    return {
+      id: 'library', label: 'Library', icon: 'library',
+      render(el) {
+        const body = h('div', { style: { marginTop: '12px' } }); const seg = h('div', { class: 'seg' });
+        el.append(h('h1', { class: 'h-screen' }, 'Library'), seg, body);
+        function paint() {
+          seg.replaceChildren(...[['fav', 'Favorites'], ['pl', 'Playlists'], ['hist', 'History']].map(([k, l]) => h('button', { class: F.tab === k ? 'on' : '', onclick: () => { F.tab = k; F.pl = null; paint(); } }, l)));
+          if (F.tab === 'fav') favs(); else if (F.tab === 'pl') (F.pl ? playlist() : lists()); else hist();
+        }
+        function favs() {
+          const inp = h('input', { id: 'fq', type: 'search', placeholder: 'Search favorites', value: F.q, 'aria-label': 'Search favorites' });
+          const sel = h('select', { class: 'sel', id: 'fsort', 'aria-label': 'Sort favorites', onchange: e => { F.sort = e.target.value; rows(); } }, ...[['recent', 'Recently added'], ['name', 'Name'], ['duration', 'Duration'], ['quality', 'Quality']].map(([v, l]) => h('option', { value: v, selected: F.sort === v }, l)));
+          const out = h('div', { style: { marginTop: '12px' } });
+          function rows() {
+            const q = F.q.trim().toLowerCase(); const order = Fav.list();
+            let l = order.map(id => Items.byId(id)).filter(Boolean).filter(i => !q || i.title.toLowerCase().includes(q));
+            const by = { recent: (a, b) => order.indexOf(a.id) - order.indexOf(b.id), name: (a, b) => a.title.localeCompare(b.title), duration: (a, b) => (b.duration || 0) - (a.duration || 0), quality: (a, b) => Items.maxQ(b) - Items.maxQ(a) }[F.sort];
+            l = l.sort(by);
+            if (!order.length) out.replaceChildren(empty('heart', 'No favorites yet', 'Tap the heart on any video or use the ⋯ menu to keep it here.'));
+            else if (!l.length) out.replaceChildren(empty('search', 'No matches', 'No favorite matches that search.'));
+            else out.replaceChildren(h('div', { class: 'grid' }, ...l.map(it => card(it, { queue: l.map(x => x.id) }))));
+          }
+          inp.addEventListener('input', () => { F.q = inp.value; rows(); });
+          body.replaceChildren(h('div', { class: 'row-tools', style: { margin: 0 } }, h('label', { class: 'field' }, icon('search', 20), inp), sel), out); rows();
+        }
+        function lists() {
+          const l = Playlists.list();
+          const make = () => RAW.sheet.prompt({ title: 'New playlist', label: 'Playlist name', placeholder: 'e.g. Weekend watch', ok: 'Create', onOk: n => { Playlists.create(n); } });
+          body.replaceChildren(h('button', { class: 'btn primary', style: { width: '100%' }, onclick: make }, icon('plus', 18), 'New playlist'),
+            l.length ? h('div', { class: 'list', style: { marginTop: '12px', gap: '8px' } }, ...l.map(p => h('div', { class: 'cust-row', role: 'button', tabindex: '0', style: { cursor: 'pointer', padding: '14px' }, onclick: () => { F.pl = p.id; paint(); } }, icon('list', 22), h('div', { class: 'lab' }, p.name, h('div', { class: 'faint small', style: { fontWeight: 500 } }, p.items.length + (p.items.length === 1 ? ' video' : ' videos'))), icon('chevR', 18))))
+              : empty('list', 'No playlists yet', 'Group videos into playlists and play them back to back.'));
+        }
+        function playlist() {
+          const p = Playlists.get(F.pl); if (!p) { F.pl = null; return lists(); }
+          const items = p.items.map(id => Items.byId(id));
+          const playable = items.filter(Boolean).filter(i => i.kind === 'catalog' || i.file).map(i => i.id);
+          body.replaceChildren(
+            h('div', { class: 'row-tools', style: { margin: '0 0 10px' } }, h('button', { class: 'btn sm', onclick: () => { F.pl = null; paint(); } }, icon('chevL', 16), 'All'), h('h2', { style: { flex: 1, fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, p.name),
+              h('button', { class: 'iconbtn plain', 'aria-label': 'Rename playlist', onclick: () => RAW.sheet.prompt({ title: 'Rename playlist', label: 'Playlist name', value: p.name, onOk: n => Playlists.rename(p.id, n) }) }, icon('edit', 18)),
+              h('button', { class: 'iconbtn plain', 'aria-label': 'Delete playlist', onclick: () => RAW.sheet.confirm({ title: 'Delete playlist?', text: '"' + p.name + '" will be deleted. The videos stay where they are.', ok: 'Delete', danger: true, onOk: () => { Playlists.remove(p.id); F.pl = null; } }) }, icon('trash', 18))),
+            h('button', { class: 'btn primary', style: { width: '100%' }, disabled: !playable.length, onclick: () => RAW.player.open(playable, 0) }, icon('play', 18), 'Play all'),
+            items.length ? h('div', { class: 'list', style: { marginTop: '10px' } }, ...items.map((it, i) => !it ? null : row(it, { queue: playable, right: h('div', { style: { display: 'flex' } },
+              h('button', { class: 'iconbtn plain', style: { width: '34px', height: '34px' }, 'aria-label': 'Move up', disabled: i === 0, onclick: e => { e.stopPropagation(); Playlists.move(p.id, i, -1); } }, icon('up', 18)),
+              h('button', { class: 'iconbtn plain', style: { width: '34px', height: '34px' }, 'aria-label': 'Move down', disabled: i === items.length - 1, onclick: e => { e.stopPropagation(); Playlists.move(p.id, i, 1); } }, icon('down', 18)),
+              h('button', { class: 'iconbtn plain', style: { width: '34px', height: '34px' }, 'aria-label': 'Remove from playlist', onclick: e => { e.stopPropagation(); Playlists.removeItem(p.id, it.id); } }, icon('x', 18))) })))
+              : empty('list', 'This playlist is empty', 'Open any video\'s ⋯ menu and choose Add to playlist.'));
+        }
+        function hist() {
+          const l = History.recent();
+          if (!l.length) { body.replaceChildren(empty('clock', 'Nothing watched yet', 'Videos you watch show up here with how far you got.')); return; }
+          body.replaceChildren(h('div', { class: 'row-tools', style: { margin: '0 0 8px' } }, h('span', { class: 'faint small', style: { flex: 1 } }, l.length + ' watched'), h('button', { class: 'btn sm danger', onclick: () => RAW.sheet.confirm({ title: 'Clear watch history?', text: 'This also forgets where you stopped in every video.', ok: 'Clear history', danger: true, onOk: () => History.clear() }) }, icon('trash', 16), 'Clear history')),
+            h('div', { class: 'list' }, ...l.map(e => { const it = Items.byId(e.id); const p = Math.round(History.pct(e.id) * 100); return row(it, { queue: null, sub: (e.done ? 'Finished' : p + '% watched') + ' · ' + fmtAgo(e.t) }); })));
+        }
+        paint();
+        const off = bus.on('lib:change', () => { if (el.isConnected) paint(); });
+        el._cleanup = off;
+      },
+    };
+  })();
+
+  RAW.screens.push(Home, Search, MyVideos, Downloads, Library);
+  RAW.ui = { card, row, thumb, empty, itemMenu, detail, playItem, pickFiles };
+  void logo;
+})();
+
+/* ===== MODULE: settings =====
+   Settings are declared as data. To add a setting, push an item into a group
+   (or push a new group) in RAW.settingsSchema:
+     { key, label, desc, type: 'toggle' | 'select' | 'swatches', options: [[value,label]], default }
+   Reading it anywhere:  RAW.settings.get('key')
+*/
+(function () {
+  const { h, icon, logo, fmtBytes } = RAW.util;
+  const S = RAW.settings;
+
+  const SPEEDS = [[0.5, '0.5×'], [0.75, '0.75×'], [1, 'Normal'], [1.25, '1.25×'], [1.5, '1.5×'], [2, '2×']];
+  const QS = [[480, '480p'], [720, '720p'], [1080, '1080p'], [1440, '2K (1440p)'], [2160, '4K (2160p)'], [4320, '8K (4320p)']];
+
+  RAW.settingsSchema.push(
+    { section: 'Appearance', items: [
+      { key: 'theme', label: 'Theme', desc: 'Dark, Light, or follow your phone', type: 'select', options: [['system', 'System'], ['dark', 'Dark'], ['light', 'Light']] },
+      { key: 'accent', label: 'Accent color', type: 'swatches', options: ['#ff6b4a', '#ffb020', '#2fb8f0', '#3cc86a', '#ff5fa2', '#9b82ff'] },
+      { key: 'anim', label: 'Animations', desc: 'Turn off for the lightest, fastest feel', type: 'toggle' },
+    ] },
+    { section: 'Player', items: [
+      { key: 'autoQ', label: 'Auto quality', desc: 'Pick the best quality your device and connection can handle', type: 'toggle' },
+      { key: 'defQuality', label: 'Default quality', desc: 'Used when Auto quality is off. The closest quality the video has is used.', type: 'select', options: QS, num: true },
+      { key: 'defSpeed', label: 'Default playback speed', type: 'select', options: SPEEDS, num: true },
+      { key: 'autoFs', label: 'Auto fullscreen', desc: 'Go fullscreen when playback starts', type: 'toggle' },
+      { key: 'remember', label: 'Remember position', desc: 'Resume where you stopped', type: 'toggle' },
+      { key: 'autoNext', label: 'Play next automatically', desc: 'In playlists and search results', type: 'toggle' },
+      { key: 'subPref', label: 'Subtitle preference', type: 'select', options: [['off', 'Off'], ['en', 'English'], ['bn', 'বাংলা']] },
+    ] },
+    { section: 'Downloads', items: [
+      { key: 'dlQuality', label: 'Default quality', desc: 'Pre-selected in the download picker', type: 'select', options: [['highest', 'Highest available']].concat(QS), num: true },
+      { type: 'info', label: 'Download location', value: 'App storage', desc: 'Private to RAW Stream on this device. Works offline. A web app cannot write to other folders.' },
+      { key: 'wifiOnly', label: 'Wi-Fi only', desc: 'Wait for Wi-Fi where the browser can tell', type: 'toggle' },
+      { key: 'maxDl', label: 'Simultaneous downloads', type: 'select', options: [[1, '1'], [2, '2'], [3, '3'], [4, '4']], num: true },
+    ] },
+    { section: 'Video sources', custom: 'repos' },
+    { section: 'Storage', custom: 'storage' },
+    { section: 'About', custom: 'about' },
+  );
+
+  function control(it, repaint) {
+    const val = S.get(it.key);
+    if (it.type === 'toggle') return h('button', { class: 'switch' + (val ? ' on' : ''), role: 'switch', 'aria-checked': String(!!val), 'aria-label': it.label, onclick: () => { S.set(it.key, !val); repaint(); } });
+    if (it.type === 'select') return h('select', { class: 'sel', id: 'set-' + it.key, 'aria-label': it.label, style: { height: '38px' }, onchange: e => { const v = e.target.value; S.set(it.key, it.num && v !== 'highest' ? Number(v) : v); repaint(); } },
+      ...it.options.map(([v, l]) => h('option', { value: v, selected: String(v) === String(val) }, l)));
+    if (it.type === 'swatches') return h('div', { class: 'swatches' }, ...it.options.map(c => h('button', { class: 'sw' + (c === val ? ' on' : ''), style: { background: c }, 'aria-label': 'Accent ' + c, 'aria-pressed': String(c === val), onclick: () => { S.set(it.key, c); repaint(); } })));
+    if (it.type === 'info') return h('span', { class: 'muted', style: { fontWeight: 700 } }, it.value);
+    return null;
+  }
+
+  async function storageCard(repaint) {
+    let est = null; try { est = await navigator.storage.estimate(); } catch { /* unsupported */ }
+    let thumbBytes = 0; try { (await RAW.db.all('thumbs')).forEach(r => { thumbBytes += String(r.v).length; }); } catch { /* */ }
+    const dlBytes = RAW.downloads.totalBytes();
+    const row = (label, desc, right) => h('div', { class: 'set-row' }, h('div', { class: 'lab' }, h('b', {}, label), desc ? h('span', {}, desc) : null), right);
+    const pct = est && est.quota ? Math.min(100, Math.round(est.usage / est.quota * 100)) : 0;
+    return h('div', { class: 'set-card' },
+      row('Storage information', est && est.quota ? fmtBytes(est.usage) + ' used of ' + fmtBytes(est.quota) + ' available to RAW Stream' : 'Your browser does not report storage', est && est.quota ? h('span', { class: 'pill' }, pct + '%') : null),
+      row('Downloaded videos', RAW.downloads.list().filter(r => r.status === 'completed').length + ' offline videos', h('b', {}, fmtBytes(dlBytes))),
+      row('Cache size', 'Thumbnails of your phone videos', h('b', {}, fmtBytes(thumbBytes))),
+      row('Clear cache', 'Removes thumbnails. They are rebuilt when needed.', h('button', { class: 'btn sm', onclick: async () => { await RAW.data.Local.clearThumbs(); RAW.toast('Cache cleared'); repaint(); } }, 'Clear')),
+      row('Delete all downloads', 'Frees the space used by offline videos', h('button', { class: 'btn sm danger', disabled: !dlBytes && !RAW.downloads.list().length, onclick: () => RAW.sheet.confirm({ title: 'Delete all downloads?', text: 'Every offline video and any unfinished download will be removed from this device.', ok: 'Delete all', danger: true, onOk: async () => { await RAW.downloads.removeAll(); RAW.toast('Downloads deleted'); repaint(); } }) }, 'Delete')));
+  }
+
+  function aboutCard(repaint, close) {
+    return h('div', { class: 'set-card' },
+      h('div', { class: 'set-row', style: { gap: '14px' } }, logo(48), h('div', { class: 'lab' }, h('b', { style: { fontFamily: 'var(--font-display)', letterSpacing: '.14em' } }, 'RAW Stream'), h('span', {}, 'Stream, download and watch your own videos'))),
+      h('div', { class: 'set-row' }, h('div', { class: 'lab' }, h('b', {}, 'Developer')), h('span', { class: 'muted', style: { fontWeight: 700 } }, RAW.developer)),
+      h('div', { class: 'set-row' }, h('div', { class: 'lab' }, h('b', {}, 'Version')), h('span', { class: 'muted', style: { fontWeight: 700 } }, RAW.version)),
+      h('div', { class: 'set-row' }, h('div', { class: 'lab' }, h('b', {}, 'Reset settings'), h('span', {}, 'Restore every setting to its default')),
+        h('button', { class: 'btn sm', onclick: () => { S.reset(); RAW.applyAppearance(); RAW.toast('Settings reset'); repaint(); } }, 'Reset')));
+    void close;
+  }
+
+  function open() {
+    const sheet = RAW.sheet.open({ title: 'Settings', full: true });
+    async function paint() {
+      const kids = [];
+      for (const g of RAW.settingsSchema) {
+        let card;
+        if (g.custom === 'storage') card = await storageCard(paint);
+        else if (g.custom === 'repos') card = RAW.repos.card(paint);
+        else if (g.custom === 'about') card = aboutCard(paint, () => sheet.close());
+        else card = h('div', { class: 'set-card' }, ...g.items.map(it => h('div', { class: 'set-row' },
+          h('div', { class: 'lab' }, h('b', {}, it.label), it.desc ? h('span', {}, it.desc) : null), control(it, paint))));
+        kids.push(h('div', { class: 'set-sec' }, h('h3', {}, g.section), card));
+      }
+      if (sheet.wrap.isConnected) sheet.set(kids);
+    }
+    paint();
+  }
+  RAW.openSettings = open;
+})();
+
+/* ===== MODULE: main =====
+   App shell (top bar, screen area, bottom navigation), router and startup.
+*/
+(function () {
+  const { h, icon, logo } = RAW.util;
+  const bus = RAW.bus;
+  let main, nav, current = null, offline;
+  const scroll = {};
+
+  const router = RAW.router = {
+    show(id) {
+      const sc = RAW.screens.find(s => s.id === id) || RAW.screens[0];
+      if (current) scroll[current.id] = main.scrollTop;
+      if (main.firstChild && main.firstChild._cleanup) { try { main.firstChild._cleanup(); } catch { /* */ } }
+      current = sc;
+      const el = h('div', { class: 'screen', id: 'scr-' + sc.id });
+      try { sc.render(el); } catch (e) { console.warn('screen failed', sc.id, e); el.replaceChildren(h('div', { class: 'empty' }, icon('info', 30), h('b', {}, 'This screen hit a problem'), h('div', {}, 'The rest of the app is fine. Try another tab, then come back.'))); }
+      main.replaceChildren(el);
+      main.scrollTop = scroll[sc.id] || 0;
+      paintNav();
+    },
+    refresh() { if (current) { const t = main.scrollTop; this.show(current.id); main.scrollTop = t; } },
+  };
+
+  function paintNav() {
+    nav.replaceChildren(...RAW.screens.map(s => {
+      const n = s.badge ? s.badge() : 0;
+      return h('button', { class: current && current.id === s.id ? 'on' : '', 'aria-label': s.label, 'aria-current': current && current.id === s.id ? 'page' : null, onclick: () => router.show(s.id) },
+        icon(s.icon, 24), h('span', {}, s.label), n ? h('span', { class: 'badge' }, n) : null);
+    }));
+  }
+
+  function shell() {
+    main = h('div', { id: 'main' });
+    nav = h('nav', { class: 'nav', 'aria-label': 'Main' });
+    offline = h('div', { class: 'offline-pill', role: 'status', hidden: true }, icon('wifi', 16), 'You are offline. Downloads and My Videos still play.');
+    const app = h('div', { id: 'app' },
+      h('header', { class: 'topbar' }, h('div', { class: 'brand' }, logo(34), h('div', { class: 'brand-text' }, h('span', { class: 'brand-word' }, 'RAW ', h('b', {}, 'STREAM')), h('span', { class: 'brand-dev' }, 'Developer SR Shadikur Rahman'))),
+        h('button', { class: 'iconbtn', 'aria-label': 'Settings', onclick: () => RAW.openSettings() }, icon('sliders', 20))),
+      offline, main, nav);
+    document.body.insertBefore(app, document.getElementById('splash'));
+    const setOff = () => { offline.hidden = navigator.onLine; };
+    addEventListener('online', setOff); addEventListener('offline', setOff); setOff();
+  }
+
+  function splash() {
+    const sp = document.getElementById('splash');
+    sp.replaceChildren(h('div', { class: 'splash-in' }, h('div', { class: 'splash-mark' }, logo(88)),
+      h('div', { class: 'splash-word' }, 'RAW ', h('b', {}, 'STREAM')), h('div', { class: 'splash-bar' }, h('i', {})), h('div', { class: 'splash-dev' }, 'Developer SR Shadikur Rahman')));
+  }
+
+  let rt = 0;
+  function softRefresh() {
+    if (rt) return;
+    rt = setTimeout(() => { rt = 0; if (current && current.id === 'home' && !RAW.player.isOpen()) router.refresh(); }, 120);
+  }
+
+  async function boot() {
+    const t0 = Date.now();
+    RAW.applyAppearance(); splash();
+    shell();
+    try { await Promise.all([RAW.data.loadSources(), RAW.data.Local.load(), RAW.downloads.init()]); }
+    catch (e) { console.warn('startup data problem', e); }
+    try { RAW.repos.init(); } catch (e) { console.warn('repositories could not start', e); }
+    router.show('home');
+    ['lib:change', 'home:layout', 'local:change', 'player:close'].forEach(ev => bus.on(ev, softRefresh));
+    let sig = '';
+    bus.on('dl:change', () => {
+      const s = RAW.downloads.list().map(r => r.key + r.status).join();
+      if (s !== sig) { sig = s; paintNav(); softRefresh(); }
+    });
+    bus.on('player:close', () => paintNav());
+    const wait = Math.max(0, 1250 - (Date.now() - t0));
+    setTimeout(() => document.getElementById('splash').classList.add('done'), wait);
+    RAW.ready = true; bus.emit('ready');
+  }
+  boot().catch(e => {
+    console.warn('boot failed', e);
+    document.getElementById('splash').classList.add('done');
+    document.body.appendChild(h('div', { class: 'empty', style: { position: 'fixed', inset: 0, background: 'var(--bg)' } }, h('b', {}, 'RAW Stream could not start'), h('div', {}, 'Reload the page. Your saved videos and settings are safe.')));
+  });
+})();
+
+
+if ('serviceWorker' in navigator) addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+
+</script>
+
+</body></html>
